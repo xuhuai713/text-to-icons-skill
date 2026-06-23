@@ -110,7 +110,7 @@ For each icon needed, fetch SVG path data from the appropriate source. Use curl/
 | **Feather Icons** | MIT | 24x24 | 1.5 | Use `references/icon-sources.md` catalog |
 | **Lucide Icons** | ISC | 24x24 | 1.5 | Use `references/icon-sources.md` catalog (shared with Feather) |
 | **Phosphor Icons** | MIT | 24x24 | 1.5 | Use catalog or fetch from CDN |
-| **IconPark** | Apache 2.0 | 48×48 | 4 → 3 | Fetch JS module, convert fill→none, stroke-width 3 |
+| **IconPark** | Apache 2.0 | 48×48 | 4 | Fetch JS module, convert fill→none, strip child stroke-width, wrap in scale(0.5) g |
 | **Iconoir** | MIT | 24×24 | 1.5 | Fetch raw SVG, convert currentColor→#000000 |
 
 **IconPark fetch pattern:**
@@ -120,8 +120,9 @@ curl -sL "https://unpkg.com/@icon-park/svg@1.4.2/es/icons/<PascalCaseName>.js"
 - Icon names are PascalCase (e.g., `ProcessLine`, `DataServer`, `CodeComputer`)
 - **Conversion required**: Output uses 48×48 viewBox with both `fill` and `stroke`. For linear output:
   - Keep `viewBox="0 0 48 48"`
-  - Set `fill="none"`, `stroke="#000000"`, `stroke-width="3"`
-  - Remove `fill="colors[1]"` and `stroke="colors[1]"` properties — set all to `fill="none" stroke="#000000"`
+  - Set `fill="none"`, `stroke="#000000"` on all elements
+  - Set `stroke-width` on child elements: **do NOT set explicit stroke-width on children** (they will inherit from the wrapper `<g>` tag)
+  - Convert `fill="colors[1]"` and `fill="colors[2]"` to `fill="none" stroke="#000000"`
   - Search available icons: `grep -i '<keyword>'` on the icons directory listing
 
 **⚠️ CRITICAL: IconPark conversion rules (MUST follow exactly):**
@@ -162,13 +163,26 @@ curl -sL "https://unpkg.com/@icon-park/svg@1.4.2/es/icons/<PascalCaseName>.js"
    
    The safest approach: **read the full JS source** (curl without grep filter) and manually list all SVG elements before writing the HTML.
 
+5. **⚠️ CRITICAL: Strip `stroke-width` from child elements** — IconPark child elements have explicit `stroke-width="4"`. In the final HTML, these are wrapped in `<g transform="scale(0.5)" stroke-width="1">`. **The child's explicit `stroke-width="4"` overrides the `<g>` tag's inherited value**, resulting in effective stroke = 4 × 0.5 = 2 units — 4× thicker than Feather's 0.5. 
+
+   **Fix**: Remove ALL `stroke-width="4"` from child elements inside the `<g>` block. Let them inherit `stroke-width="1"` from the `<g>` tag. After `scale(0.5)`, effective stroke = 1 × 0.5 = **0.5 units**, matching Feather exactly.
+
+   In Python, this regex strips it from all children:
+   ```python
+   inner = re.sub(r'\s+stroke-width="4"', '', inner)
+   ```
+
+   **Verification**: Every IconPark `<g>` block must be checked — count all blocks and confirm zero have `stroke-width="4"` remaining.
+
 **Iconoir fetch pattern:**
 ```bash
 curl -sL "https://cdn.jsdelivr.net/npm/iconoir@7.11.0/icons/regular/<name>.svg"
 ```
 - Icon names are kebab-case (e.g., `bright-star`, `book-stack`, `open-in-window`)
 - **Conversion required**: Change `stroke="currentColor"` to `stroke="#000000"`; add `stroke-linecap="round" stroke-linejoin="round"` if missing
-- The raw SVG is 24×24 with `stroke-width="1.5"` — minimal conversion needed
+- **⚠️ CRITICAL: Iconoir SVG tag format varies across icons**. Some use `<svg ... stroke-width="1.5" viewBox="..." ...>` while others use `<svg ... viewBox="..." stroke-width="1.5" ...>` (attribute order differs). Use a regex `re.sub(r'<svg[^>]*>', ...)` to strip the entire opening tag rather than a fixed `replace()` — otherwise some icons will retain the original `stroke-width="1.5"` and wrong attributes.
+- The raw SVG is 24×24 with `stroke-width="1.5"`. After extracting inner paths, wrap in your own `<svg>` tag with `stroke-width="0.5"`.
+- After construction, verify every Iconoir SVG's opening tag has: `stroke-width="0.5"`, `stroke-linecap="round"`, `stroke-linejoin="round"`, `width="24pt" height="24pt"`, `id="..."`.
 - Search available icons: `grep -i '<keyword>'` on the regular/ directory listing
 
 ### Step 4: Generate the HTML Output
@@ -186,12 +200,13 @@ Generate a single self-contained HTML file with these requirements:
 - Show a brief "已复制!" / "Copied!" feedback animation
 - Use `navigator.clipboard.writeText()` with a `<textarea>` fallback
 - **CRITICAL: No hidden SVGs** — copy function reads SVG paths directly from the visible `<svg>` element using `viewSvg.innerHTML`. Do NOT store duplicate SVG data in hidden elements; this caused border rendering issues and doubled file size.
-- **Color handling**: Copy function reads the `stroke` attribute from the visible SVG to use in the output. Never use `stroke="currentColor"` — some apps (WeChat, Feishu) can't resolve this CSS keyword and render nothing.
+- **Color handling**: Copy function **explicitly sets `stroke="#000000"` on the cloned SVG** via `cloned.setAttribute('stroke', '#000000')` — this is more reliable than reading from the visible element. Never use `stroke="currentColor"` — some apps (WeChat, Feishu) can't resolve this CSS keyword and render nothing.
+- **Serialization**: Use `new XMLSerializer().serializeToString(cloned)` rather than `.innerHTML` — this produces a complete SVG string including all namespaced attributes.
 - **Stroke width**: Display and copy both use `0.5pt` (via `COPY_STROKE_WIDTH` variable). Uniform across all icon sources.
 
 **SVG format rules:**
 - **Uniform 24×24 viewBox** for ALL icons (Feather, Lucide, Phosphor, Iconoir). 
-- **IconPark 48×48 icons**: Wrap original 48×48 paths in `<g transform="scale(0.5)" stroke-width="1">` to scale into 24×24 viewBox.
+- **IconPark 48×48 icons**: Wrap original 48×48 paths in `<g transform="scale(0.5)" stroke-width="1">` to scale into 24×24 viewBox. **MUST strip `stroke-width="4"` from all child elements** before wrapping — otherwise child's explicit stroke-width overrides the `<g>` and results in 4× thicker strokes (see IconPark conversion rule #5).
 - **Uniform stroke-width="0.5"** for ALL display SVGs and copied SVGs.
 - `fill="none"`, `stroke="#000000"`, `stroke-linecap="round"`, `stroke-linejoin="round"` on all SVG tags
 - Copied SVG **must include** `xmlns="http://www.w3.org/2000/svg"`, `viewBox="0 0 24 24"`, and **`width="24pt" height="24pt"`** to ensure PPT imports at consistent size and stroke weight
