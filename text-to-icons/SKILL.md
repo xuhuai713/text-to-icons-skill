@@ -1,6 +1,6 @@
 ---
 name: text-to-icons
-description: Convert user-provided text into matching linear icons, presented as an interactive HTML with one-click SVG copying. Uniform 24×24 viewBox, 0.5pt stroke for both display and clipboard. Default color: #000000.
+description: "Convert user-provided text into matching linear icons, presented as an interactive HTML with one-click SVG copying. Uniform 24×24 viewBox, 0.5pt stroke for both display and clipboard."
 agent_created: true
 ---
 
