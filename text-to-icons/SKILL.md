@@ -1,6 +1,6 @@
 ---
 name: text-to-icons
-description: "Convert user-provided text into matching linear icons, presented as an interactive HTML with one-click SVG copying. Uniform 24×24 viewBox, 0.5pt stroke for both display and clipboard."
+description: "Convert user-provided text into matching linear icons. Output is a single self-contained HTML file using a data-driven template (icons-template.html). All icon data lives in the ICON_GROUPS JS array; the template renders cards dynamically. Uniform 24×24 viewBox, 0.5pt stroke for both display and clipboard."
 agent_created: true
 ---
 
@@ -185,50 +185,43 @@ curl -sL "https://cdn.jsdelivr.net/npm/iconoir@7.11.0/icons/regular/<name>.svg"
 - After construction, verify every Iconoir SVG's opening tag has: `stroke-width="0.5"`, `stroke-linecap="round"`, `stroke-linejoin="round"`, `width="24pt" height="24pt"`, `id="..."`.
 - Search available icons: `grep -i '<keyword>'` on the regular/ directory listing
 
-### Step 4: Generate the HTML Output
+### Step 4: Build the ICON_GROUPS Data Array
 
-Generate a single self-contained HTML file with these requirements:
+**Do NOT generate a full HTML file from scratch.** Use the canonical template `icons-template.html` located in the skill's `assets/` directory (or in the workspace root from a prior run). The template is a data-driven framework where all icon content lives in a single JavaScript constant.
 
-**Structure:**
-- Single card/block per item with the item name and **6 icon options**
-- Responsive grid layout (1 column on mobile, **6 columns for icons on desktop** — or 3 rows × 2 columns on tablet)
-- Clean, professional design with subtle card styling
+**Template structure (read-only — do not modify the rendering code):**
 
-**Copy-to-clipboard feature:**
-- Each icon has a "Copy SVG" button
-- On click, copies the raw SVG code (with `<svg>` tag and all attributes) to clipboard
-- Show a brief "已复制!" / "Copied!" feedback animation
-- Use `navigator.clipboard.writeText()` with a `<textarea>` fallback
-- **CRITICAL: No hidden SVGs** — copy function reads SVG paths directly from the visible `<svg>` element using `viewSvg.innerHTML`. Do NOT store duplicate SVG data in hidden elements; this caused border rendering issues and doubled file size.
-- **Color handling**: Copy function **explicitly sets `stroke="#000000"` on the cloned SVG** via `cloned.setAttribute('stroke', '#000000')` — this is more reliable than reading from the visible element. Never use `stroke="currentColor"` — some apps (WeChat, Feishu) can't resolve this CSS keyword and render nothing.
-- **Serialization**: Use `new XMLSerializer().serializeToString(cloned)` rather than `.innerHTML` — this produces a complete SVG string including all namespaced attributes.
-- **Stroke width**: Display and copy both use `0.5pt` (via `COPY_STROKE_WIDTH` variable). Uniform across all icon sources.
+The template has these key sections:
+- **Top config**: `PAGE_TITLE`, `ICON_COLOR`, `COPY_STROKE_WIDTH` — change values as needed
+- **Data array `ICON_GROUPS`**: The only section to edit. Format:
+  ```javascript
+  const ICON_GROUPS = [
+    {
+      name: "组名",     // ← Displayed as section heading
+      icons: [
+        { paths: '<circle cx="12" cy="12" r="10"/>...', source: "Feather" },  // ← SVG inner paths + source badge
+        // ... up to 6 icons per group
+      ]
+    },
+    // ... as many groups as needed
+  ];
+  ```
+- **Render engine + copy functions**: Auto-generate cards and handle clipboard. Never edit these.
 
-**SVG format rules:**
-- **Uniform 24×24 viewBox** for ALL icons (Feather, Lucide, Phosphor, Iconoir). 
-- **IconPark 48×48 icons**: Wrap original 48×48 paths in `<g transform="scale(0.5)" stroke-width="1">` to scale into 24×24 viewBox. **MUST strip `stroke-width="4"` from all child elements** before wrapping — otherwise child's explicit stroke-width overrides the `<g>` and results in 4× thicker strokes (see IconPark conversion rule #5).
-- **Uniform stroke-width="0.5"** for ALL display SVGs and copied SVGs.
-- `fill="none"`, `stroke="#000000"`, `stroke-linecap="round"`, `stroke-linejoin="round"` on all SVG tags
-- Copied SVG **must include** `xmlns="http://www.w3.org/2000/svg"`, `viewBox="0 0 24 24"`, and **`width="24pt" height="24pt"`** to ensure PPT imports at consistent size and stroke weight
-- `stroke-linecap="round"` and `stroke-linejoin="round"` on SVG tag
-- Width/height for display: `w-10 h-10` (Tailwind) or `width="40" height="40"`
-- **Color customization**: Default stroke color is `#000000`. If the user provides a custom hex color (e.g. "#ff6600" or "red"), use it for all icon strokes.
-- **Stroke width customization**: Default copy stroke is `0.5`. Update the `COPY_STROKE_WIDTH` variable to change.
-
-**Styling defaults:**
-- Light theme (slate/white background)
-- Tailwind CSS via CDN for layout (`<script src="https://cdn.tailwindcss.com"></script>`)
-- Card hover: slight lift with shadow
-- Copy button: border style, transitions smoothly to "Copied" state
-- Step numbers displayed with gradient badges
-- **Source attribution**: Each icon card must display a small tag/badge showing which icon library it comes from (`Feather`, `Lucide`, `Phosphor`, `IconPark`, `Iconoir`) — this builds user trust and clarifies licensing
-- **Icon color**: All displayed and copied SVGs use `#000000` as default stroke color. If the user specifies a custom color, apply it globally (display SVGs + copy output).
+**Rules for building the array:**
+1. Keep the template file path and rendering code unchanged
+2. Only modify: `PAGE_TITLE`, `ICON_COLOR` (if user requests a color), and the `ICON_GROUPS` array
+3. Each `paths` value is the **inner HTML** of the SVG — just the `<path>`, `<circle>`, `<line>`, `<polyline>`, `<rect>`, `<ellipse>`, `<polygon>` tags — **without** the `<svg>` wrapper
+4. Each icon MUST pass the quality checks from Step 2 (recognizable, no repetitions, path density, etc.)
+5. For IconPark 48×48 icons (scaled): wrap in `<g transform="scale(0.5)">` before putting in `paths`. Strip `stroke-width="4"` from child elements.
+6. Aim for 6 icons per group. Minimum 1, maximum 6. If fewer than 6, the grid still renders correctly.
 
 ### Step 5: Deliver
 
-1. Write the HTML to `icons.html` in the workspace root
-2. Use `preview_url` to show it in the browser
-3. Summarize what was generated in text
+1. Copy `icons-template.html` to a new file (e.g. `icons.html`, `icons-xxx.html`)
+2. Edit the copy: fill in `ICON_GROUPS` with the mapped icons, update `PAGE_TITLE`
+3. Open in browser to verify rendering
+4. Summarize what was generated in text
 
 ## References Reference
 
@@ -246,7 +239,7 @@ Always load `references/icon-sources.md` into context when executing this skill.
 - `icon-sources.md` — Full icon catalog organized by semantic category with SVG path data
 
 ### assets/
-- (No assets needed — everything is generated programmatically)
+- `icons-template.html` — Canonical data-driven template file (based on `icons-api.html` format). Copy this to start a new icon set, then edit `ICON_GROUPS` and `PAGE_TITLE`. **Do NOT modify the rendering code or copy functions.**
 
 ### scripts/
 - (No scripts needed — the icon mapping is done via reference lookup in context)
