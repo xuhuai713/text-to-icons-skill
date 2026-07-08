@@ -120,12 +120,72 @@ For each icon needed, fetch SVG path data from the appropriate source.
 
 #### A) IconPark (Core Source — Apache 2.0, 48×48 → 24×24 scaled)
 
+##### Single icon fetch (curl):
+
 ```bash
 curl -sL "https://unpkg.com/@icon-park/svg@1.4.2/es/icons/<PascalCaseName>.js"
 ```
 
 - Names are PascalCase (e.g., `ProcessLine`, `DataServer`, `CodeComputer`)
-- Search: `grep -i '<keyword>'` on the icons directory listing fetched via curl
+- Search: `curl -sL "https://unpkg.com/@icon-park/svg@1.4.2/es/icons/" | grep -oP 'href="[^"]+\.js"' | sed 's|.*/||;s/\.js"//' | sort -u`
+
+##### Batch fetch + conversion (Python — preferred for ≥5 icons):
+
+For larger icon sets, use this Python script structure that fetches all modules, evaluates the JS template literals, and converts to SVG paths in one pass:
+
+```python
+import re, urllib.request, json
+
+BASE = "https://unpkg.com/@icon-park/svg@1.4.2/es/icons/{}.js"
+
+def fetch(name):
+    url = BASE.format(name)
+    with urllib.request.urlopen(url, timeout=20) as r:
+        return r.read().decode("utf-8")
+
+def convert(js):
+    # Extract the return expression from the JS module
+    m = re.search(r"return (.+?);\s*\}\);", js, re.DOTALL)
+    if not m:
+        m = re.search(r"return (.+);", js, re.DOTALL)
+    if not m:
+        return None
+    expr = m.group(1)
+    # Replace all props.* template variables with static values
+    for a, b in [
+        ('props.colors[0]', '"#000000"'),   # stroke color
+        ('props.colors[1]', '"#000000"'),   # primary fill → stroke
+        ('props.colors[2]', '"#000000"'),   # secondary fill → stroke
+        ('props.colors[3]', '"#000000"'),   # tertiary fill → stroke
+        ('props.strokeWidth', '"4"'),
+        ('props.size', '"48"'),
+        ('props.strokeLinecap', '"round"'),
+        ('props.strokeLinejoin', '"round"'),
+    ]:
+        expr = expr.replace(a, b)
+    # Evaluate as Python string concatenation to get the SVG
+    svg = eval(expr)
+    # Clean up
+    svg = re.sub(r'<\?xml[^>]+\?>', '', svg)
+    inner = re.sub(r'<svg[^>]*>', '', svg)
+    inner = re.sub(r'</svg>', '', inner)
+    # Convert fills to linear strokes
+    inner = inner.replace('fill="#000000"', 'fill="none" stroke="#000000"')
+    inner = inner.replace('stroke="#000000" stroke="#000000"', 'stroke="#000000"')
+    inner = inner.replace('fill="none" stroke="#000000" stroke="#000000"', 'fill="none" stroke="#000000"')
+    # Strip all child stroke-width (they inherit from g wrapper)
+    inner = re.sub(r'\s+stroke-width="\d+"', '', inner)
+    return '<g transform="scale(0.5)" stroke-width="3">' + inner.strip() + '</g>'
+
+# Usage:
+ip_names = ["People", "Camera", "Phone", "Comment", "Search"]  # etc.
+ip_data = {}
+for name in ip_names:
+    js = fetch(name)
+    ip_data[name] = convert(js)
+```
+
+This approach is faster and more reliable than manually converting each icon.
 
 **Conversion from 48×48 JS module to inner SVG paths:**
 
@@ -213,10 +273,16 @@ curl -sL "https://unpkg.com/lucide-static@latest/icons/<kebab-name>.svg"
 1. Read the raw SVG file
 2. Extract inner elements (<path>, <circle>, <rect>, <line>, <polyline>, <polygon>)
 3. **Strip `stroke-width="2"` from child elements** — Let the template's wrapper SVG (`stroke-width="1.5"`) control the stroke. The clipboard copy function will use the correct 0.5pt.
+4. **Strip XML comments from the SVG** — Lucide SVGs from unpkg may contain `<!-- @license lucide-static vX.X.X - ISC -->` comments. Remove them before embedding.
+5. **Strip `\\n` whitespace from paths** — Some Lucide SVGs contain embedded `\\n` characters from the SVG formatting. These don't break rendering but should be cleaned for consistency.
 
 ```python
+# Strip XML comment and newlines from Lucide SVG
+inner = re.sub(r'<!--[^>]*-->', '', inner)
+inner = inner.replace('\\n', '').strip()
+
 # Strip explicit stroke-width from Lucide children
-inner = re.sub(r'\s+stroke-width="2"', '', inner)
+inner = re.sub(r'\\s+stroke-width="2"', '', inner)
 ```
 
 **Final format:**
@@ -382,14 +448,38 @@ const ICON_GROUPS = [
 3. Open in browser to verify rendering
 4. Present the file to the user
 
+**⚠️ CRITICAL: Do NOT delete the template's rendering functions when replacing ICON_GROUPS.**
+The template has this structure:
+
+```
+const ICON_GROUPS = [...];     // ← replace this block only
+                              // ← keep everything below
+// ═══════ 渲染引擎 ——— 无需修改 ═══════
+function buildSvgTag(paths) { ... }  // ← MUST preserve
+function renderIcons() { ... }       // ← MUST preserve
+renderIcons();                       // ← MUST preserve
+function copySVG(btn) { ... }        // ← MUST preserve
+```
+
+When doing a string replacement (e.g., via Python script), match from `const ICON_GROUPS = [` to `];` (the closing semicolon of ICON_GROUPS), NOT to `function renderIcons()`. The `buildSvgTag` function sits between them. Missing it = blank page.
+
+**Example safe replacement in Python:**
+```python
+start = template.find('const ICON_GROUPS = [')
+# Find the ]; that closes ICON_GROUPS (not one inside)
+end = template.find('\n];\n\n// ═══════════\n// 渲染引擎', start) + 2
+new_template = template[:start] + new_groups_js + template[end:]
+```
+
 ## Priority Enforcement Check
 
 Before delivering, verify each group's icon selection against the priority hierarchy:
 
-1. **Count per tier**: Tier 1 (IconPark) ≥ 3 per group? Tier 2 (Feather/Huge) ≤ 2? Tier 3 (Lucide/others) ≤ 1?
-2. **Reason for downgrade**: If any icon comes from Tier 2 or 3, verify that IconPark genuinely lacked a matching icon (no equivalent concept, or all candidates failed quality rules)
-3. **Stroke uniformity**: Check that IconPark icons use `<g transform="scale(0.5)" stroke-width="3">` — not bare `<g transform="scale(0.5)">` which would make them half as thick as Feather icons
-4. **No random pick**: Every icon selection must be traceable to the priority hierarchy decision logic
+1. **Exactly 6 icons per group** — The skill mandates each text item maps to 6 icons. This is a hard rule. Do NOT reduce to fewer without explicit user request.
+2. **Count per tier**: Tier 1 (IconPark) ≥ 3 per group? Tier 2 (Feather/Huge) ≤ 2? Tier 3 (Lucide/others) ≤ 1?
+3. **Reason for downgrade**: If any icon comes from Tier 2 or 3, verify that IconPark genuinely lacked a matching icon (no equivalent concept, or all candidates failed quality rules)
+4. **Stroke uniformity**: Check that IconPark icons use `<g transform="scale(0.5)" stroke-width="3">` — not bare `<g transform="scale(0.5)">` which would make them half as thick as Feather icons
+5. **No random pick**: Every icon selection must be traceable to the priority hierarchy decision logic
 
 ## Fallback Behavior
 
@@ -407,3 +497,41 @@ Before delivering, verify each group's icon selection against the priority hiera
 
 ### scripts/
 - (Empty — all icon mapping is done via reference catalog lookup and CDN fetch)
+
+## 📋 IconPark Name Catalog for Chinese Business Concepts
+
+Below is a practical mapping of common Chinese concepts to their IconPark PascalCase names, discovered through real usage. Use this for rapid lookup.
+
+| 中文概念 | IconPark 图标名 | 说明 |
+|---------|----------------|------|
+| **人员/用户** | | |
+| 人员/人群 | `People`, `Group`, `User`, `Avatar` | People=双人, Group=4人矩阵 |
+| 面对面沟通 | `People`, `Comments` | Comments=双气泡 |
+| 添加用户 | `AddUser` | 用户+加号 |
+| **沟通/媒体** | | |
+| 摄像机 | `Camera`, `CameraOne`, `CameraFive` | One=摄像头+底座 |
+| 电话 | `Phone`, `PhoneCall`, `PhoneBooth`, `HeadphoneSound` | |
+| 气泡/消息 | `Comment`, `Comments`, `Message`, `MessageOne` | |
+| 语音 | `Microphone`, `Voice`, `VoiceOne`, `VoiceInput` | |
+| 放大镜/搜索 | `Search`, `FileSearch`, `PreviewOpen` | 注意: IconPark 无 Magnifier 命名 |
+| 眼睛/查看 | `Eyes`, `Eye` | 双眼睛=查看/搜索 |
+| **文档/存储** | | |
+| 文档 | `FileText`, `FileDoc`, `DocAdd`, `CollectionFiles` | |
+| 文件夹 | `Folder`, `FolderOne`, `DocumentFolder` | |
+| **列表/清单** | | |
+| 列表/总结 | `List`, `ListNumbers`, `ListOne`, `ListCheckbox` | |
+| 清单/检查 | `Checklist`, `Checkbox`, `Clipboard` | |
+| **情感/关系** | | |
+| 爱心 | `Heart`, `HeartBallon`, `Heartbeat`, `Like`, `Dislike` | |
+| 标签 | `Tag`, `TagOne`, `Label` | |
+| **商业** | | |
+| 商机/目标 | `Target`, `TargetOne`, `GoldMedal`, `Briefcase`, `Star` | Target=靶心=机会 |
+| 钱/支付 | `Dollar`, `Bitcoin`, `PaperMoney`, `GoldMedal` | |
+| **流程/连接** | | |
+| 业务流程 | `ProcessLine`, `Branch`, `BranchOne`, `Exchange` | |
+| 连接 | `Connect`, `Connection`, `ConnectionPoint`, `CircularConnection` | |
+
+When mapping a Chinese concept to IconPark:
+1. Use `curl -sL "https://unpkg.com/@icon-park/svg@1.4.2/es/icons/" | grep -i <keyword>` to find candidates
+2. Cross-reference with the table above for commonly needed concepts
+3. Verify that the PascalCase name matches the concept (some names are non-obvious, e.g. `Comments` = two speech bubbles = 沟通)
