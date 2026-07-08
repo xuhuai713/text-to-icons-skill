@@ -1,252 +1,365 @@
 ---
 name: text-to-icons
-description: Convert user-provided text into matching linear icons, presented as an interactive HTML with one-click SVG copying. Uniform 24×24 viewBox, 0.5pt stroke for both display and clipboard. Default color: #000000.
+description: "Convert user-provided text into matching linear icons. Output is a single self-contained HTML file using a data-driven template (icons-template.html). All icon data lives in the ICON_GROUPS JS array; the template renders cards dynamically. Uniform 24×24 viewBox, 0.5pt stroke for both display and clipboard. Core source: IconPark (Apache 2.0). Additional sources: Feather/MIT, Lucide/ISC, Phosphor/MIT, Iconoir/MIT, Huge Icons/MIT."
 agent_created: true
 ---
 
-# Text to Icons
+# Text to Icons — 文本转图标
 
 ## Overview
 
-This skill transforms textual content—process steps, feature lists, categories, or any structured text—into beautiful linear icons and renders them as a single self-contained HTML file. Each text item maps to **6 matching icons** drawn from a curated set of open-source icon libraries. The HTML includes one-click "Copy SVG" buttons for immediate reuse.
+This skill transforms structured text (process steps, feature lists, categories, slide titles) into matching linear/outline icons and renders them as a single self-contained HTML file. Each text item maps to **6 matching icons** drawn from a curated set of free, commercially-usable icon libraries. The HTML includes one-click "Copy SVG" buttons.
 
-## 🔑 Critical Quality Rules (MUST FOLLOW)
+## 🔑 Critical Quality Rules — MUST FOLLOW
 
 Every icon in the output MUST pass ALL these checks:
 
-1. **Instantly recognizable** — The average person must understand what the icon means within 1 second. If you have to squint or think about it, it fails.
-2. **No abstract metaphors** — Only use icons that are universally understood visual symbols. A magnifying glass = search (good). A gear = settings (good). A pair of curvy lines as "handshake" (bad — looks like random squiggles).
-3. **Must decode without labels** — Remove the text label and the icon should still be obvious.
-4. **Vet your SVG paths** — Before including an icon, mentally trace the paths to ensure they actually draw what you think they draw. A "handshake" icon should clearly show two hands meeting, not abstract curves.
-5. **No repetitions** — Within the same item's 6 icons, don't include two icons that look nearly the same (e.g., don't include both "search" and "search-alt"). Also avoid reusing the same icon across different concepts more than 2 times; prefer sourcing from different libraries to reduce duplication.
-6. **Path density check** — Reject any icon with more than 6 path elements (paths, lines, circles, rects, etc.) UNLESS every single element is clearly distinguishable at 28x28px. Dense icons with 7+ overlapping paths are illegible and MUST be replaced with simpler alternatives. Rule of thumb: if you can't trace each element at a glance, it fails.
-7. **Shape integrity check** — Every geometric shape in the icon must be complete and correctly proportioned. Reject icons where:
-   - Circles look squashed or off-center
-   - Rectangles have mismatched corners
-   - Lines don't connect where they visually should
-   - Elements appear to overlap unintentionally ("杂糅")
-8. **Visual weight balance** — The icon's strokes must be evenly distributed across the 24x24 viewBox. Reject icons where more than 70% of the strokes are crammed into one corner or side, leaving the rest empty — this creates a heavy, unbalanced appearance at small sizes.
+1. **Instantly recognizable** — The average person understands the icon within 1 second. No squinting required.
+2. **No abstract metaphors** — Only universally understood visual symbols: magnifying glass = search (good); abstract curves labeled "handshake" (bad — looks like random squiggles).
+3. **Must decode without labels** — Remove the text label; the icon should still be obvious.
+4. **Vet SVG paths** — Before including any icon, mentally trace the paths to confirm they actually draw the intended shape.
+5. **No repetitions** — Within the same group's 6 icons, avoid visually similar variants. Also avoid reusing the same icon across different groups more than 2 times.
+6. **Path density check** — Max 6 path elements (paths/lines/circles/rects/polylines) unless every element is clearly distinguishable at 28×28px.
+7. **Shape integrity check** — Reject squashed circles, mismatched corners, disconnected lines, unintentional overlapping (杂糅).
+8. **Visual weight balance** — Strokes must be evenly distributed across the 24×24 viewBox. Reject icons where >70% of strokes cram into one corner.
 
 ## When to Use
 
-- User provides a list of steps, stages, or phases (e.g., a business process flow, a product roadmap, a project lifecycle)
-- User provides feature names, module names, or category labels and wants matching icons
+- User provides steps, stages, phases (business process flow, product roadmap, project lifecycle)
+- User provides feature names, module names, category labels needing matching icons
 - User says "帮我把这些内容转成图标" / "给这些步骤配上图标" / "convert this text to icons"
-- User wants icons that can be copied as SVG code for use in design tools or frontend projects
-- User explicitly requests linear/outline icons with 1.5px stroke style
+- User wants copyable SVG icons for design tools or frontend projects
+- User requests linear/outline icons with consistent stroke style
+
+## Icon Source Reference
+
+Always load `references/icon-sources.md` into context. It contains the full catalog organized by semantic category with SVG path data for rapid lookup without external fetching.
+
+Six active sources. Distribute selections across at least 3 libraries per group, prefer 2-3 from IconPark, 2-3 from Feather/Lucide, and 1-2 from the remaining sources:
+
+| Source | License | Icons | viewBox | Default Stroke | Fetch Method |
+|--------|---------|-------|---------|----------------|--------------|
+| **IconPark** ⭐ (core) | Apache 2.0 | 2600+ | 48×48 | 4 | `unpkg.com/@icon-park/svg@1.4.2/es/icons/<PascalCase>.js`; scale(0.5), strip stroke-width |
+| **Feather Icons** | MIT | 286 | 24×24 | 1.5 | Reference catalog in `icon-sources.md` |
+| **Lucide Icons** | ISC | 1400+ | 24×24 | 2 | `unpkg.com/lucide-static@latest/icons/<kebab-name>.svg`; strip stroke-width="2" |
+| **Phosphor Icons** | MIT | 9000+ | 24×24 | 1.5 | Reference catalog in `icon-sources.md` |
+| **Iconoir** | MIT | 1600+ | 24×24 | 1.5 | `cdn.jsdelivr.net/npm/iconoir@7.11.0/icons/regular/<kebab-name>.svg`; convert currentColor→#000000 |
+| **Huge Icons** (free) | MIT | 5400+ | 24×24 | 1.5 | `cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/esm/<PascalCase>Icon.js`; read as tuple array, convert to inner SVG paths |
 
 ## Workflow
 
 ### Step 1: Parse the Input
 
-Extract all discrete items from the user's text. Items may be separated by:
-- Newlines (each line is one item)
-- Numbered or bulleted lists
-- Comma-separated within a sentence
-- Table rows
+Extract all discrete items from the user's text. Separators: newlines, numbered/bulleted lists, commas, table rows. Preserve original order. Output a numbered list for user confirmation.
 
-Preserve the original order. Output a numbered list for the user to confirm.
+### Step 2: Map Each Item to 6 Matching Icons
 
-**Example input:**
-```
-线索挖掘, 商机洞察, 客户拜访, 营销推荐, 方案报价
-```
-
-**Parsed output:**
-```
-1. 线索挖掘
-2. 商机洞察
-3. 客户拜访
-4. 营销推荐
-5. 方案报价
-```
-
-### Step 2: Map Each Item to 6 Matching Icons (Critical Selection Process)
-
-For each item, **painstakingly hand-pick 6 icons** that are immediately recognizable. This is the most important step.
+For each item, painstakingly hand-pick 6 icons that pass ALL 8 quality rules. This is the most critical step.
 
 **Icon selection process:**
-1. First, identify the core concept of the item (e.g., "线索挖掘" = search/discovery)
-2. Look at the reference catalog and mentally verify each candidate icon's paths
-3. Reject any icon whose meaning isn't instantly clear
-4. Select exactly 6 icons with DISTINCT visual forms (no similar-looking repeats)
-5. Distribute across at least **3 different libraries**; prefer using 2-3 from IconPark, 2-3 from Feather, and 1-2 from Iconoir/Lucide/Phosphor per concept to maximize visual diversity
+1. Identify the core concept (e.g., "线索挖掘" = search/discovery)
+2. Look up the reference catalog; mentally verify each candidate
+3. Reject any icon whose meaning is not instantly clear
+4. Select exactly 6 icons with DISTINCT visual forms
+5. Distribute across at least 3 libraries (prefer 2-3 IconPark, 2-3 Feather/Lucide, 1-2 from others)
 
-**Quality benchmarks by category (what icons MUST look like):**
+**Selection quality benchmarks:**
 
-| Category | GOOD examples (instantly recognizable) | BAD examples (REJECT) |
-|----------|--------------------------------------|----------------------|
+| Category | GOOD (instantly recognizable) | BAD (REJECT) |
+|----------|-------------------------------|--------------|
 | Search / Discovery | magnifying glass, compass, binoculars | abstract circles, squiggly lines |
-| Data / Analysis / Insight | bar chart, line chart, pie chart, eye | brain, abstract geometry |
-| People / User / Visit | single person, two people, group, phone, door | abstract "handshake" curves |
+| Data / Analysis | bar chart, line chart, pie chart, eye | brain, abstract geometry |
+| People / User / Visit | single person, two people, door, phone | abstract "handshake" curves |
 | Marketing / Promotion | megaphone, trophy, star, gift, thumbs-up | abstract badges |
-| Price / Money / Quotation | dollar sign, coins, credit card, tag, wallet, calculator | abstract symbols |
+| Price / Money / Quotation | dollar sign, coins, credit card, tag, wallet | abstract symbols |
 | Contract / Document / Sign | file text, pen, clipboard, folder, book | ambiguous scroll shapes |
 | Project / Task / Implement | clipboard check, flag, layers, target, check circle | abstract branching lines |
 | Product / Config / Setup | box, gear, wrench, sliders, grid | abstract lattice |
 | Activation / Launch | zap, play, power, plus, rocket | ambiguous arrows |
-| Billing / Invoice | monitor, printer, bar chart, receipt, file invoice | abstract file shapes |
+| Billing / Invoice | monitor, printer, bar chart, receipt | abstract file shapes |
 | Settlement / Cart | shopping cart, check, x mark, trash, ban | complex checkout flows |
-| Completion / Done | check circle, check mark, award, archive, smile | ambiguous checkmarks |
+| Completion / Done | check circle, award, archive, smile | ambiguous checkmarks |
 | Service / Maintenance | wrench, tool, terminal, code | abstract gear-only |
-| Risk / Security / Audit | shield, lock, warning, alert, search audit | abstract polygons |
-| Training / Learning | book open, graduation cap, presentation, file badge | abstract head shapes |
+| Risk / Security / Audit | shield, lock, warning, alert | abstract polygons |
+| Training / Learning | book open, graduation cap, presentation | abstract head shapes |
 
-For each item, pick 6 icons that cover distinct visual forms:
-- **Literal symbols** (2-3): The most direct, obvious representation of the concept
+For each item, pick 6 icons covering distinct visual forms:
+- **Literal symbols** (2-3): The most direct, obvious representation
 - **Action/outcome** (2): Something related to the action or result
 - **Tool/related object** (1-2): A commonly associated tool
 
-**CRITICAL: Before finalizing any icon, mentally trace its SVG paths.** Make sure the paths actually draw what you think they draw. The "handshake" icon from the previous version was wrong — its SVG paths drew abstract curves that didn't look like hands at all. If the paths look like they might not render correctly, replace the icon.
+**CRITICAL: Before finalizing any icon, mentally trace its SVG paths.** Confirm the paths actually draw what is intended.
 
 ### Step 3: Fetch SVG Paths from Icon Sources
 
-For each icon needed, fetch SVG path data from the appropriate source. Use curl/bash to fetch from CDN/NPM packages.
+For each icon needed, fetch SVG path data from the appropriate source.
 
-**Active Icon Sources:**
+#### A) IconPark (Core Source — Apache 2.0, 48×48 → 24×24 scaled)
 
-| Source | License | viewBox | stroke | How to Fetch |
-|--------|---------|---------|--------|-------------|
-| **Feather Icons** | MIT | 24x24 | 1.5 | Use `references/icon-sources.md` catalog |
-| **Lucide Icons** | ISC | 24x24 | 1.5 | Use `references/icon-sources.md` catalog (shared with Feather) |
-| **Phosphor Icons** | MIT | 24x24 | 1.5 | Use catalog or fetch from CDN |
-| **IconPark** | Apache 2.0 | 48×48 | 4 | Fetch JS module, convert fill→none, strip child stroke-width, wrap in scale(0.5) g |
-| **Iconoir** | MIT | 24×24 | 1.5 | Fetch raw SVG, convert currentColor→#000000 |
-
-**IconPark fetch pattern:**
 ```bash
 curl -sL "https://unpkg.com/@icon-park/svg@1.4.2/es/icons/<PascalCaseName>.js"
 ```
-- Icon names are PascalCase (e.g., `ProcessLine`, `DataServer`, `CodeComputer`)
-- **Conversion required**: Output uses 48×48 viewBox with both `fill` and `stroke`. For linear output:
-  - Keep `viewBox="0 0 48 48"`
-  - Set `fill="none"`, `stroke="#000000"` on all elements
-  - Set `stroke-width` on child elements: **do NOT set explicit stroke-width on children** (they will inherit from the wrapper `<g>` tag)
-  - Convert `fill="colors[1]"` and `fill="colors[2]"` to `fill="none" stroke="#000000"`
-  - Search available icons: `grep -i '<keyword>'` on the icons directory listing
 
-**⚠️ CRITICAL: IconPark conversion rules (MUST follow exactly):**
+- Names are PascalCase (e.g., `ProcessLine`, `DataServer`, `CodeComputer`)
+- Search: `grep -i '<keyword>'` on the icons directory listing fetched via curl
 
-1. **Extract ALL element types, not just `<path>`** — The JS module contains `<rect>`, `<circle>`, `<path>`, and `<polyline>` elements. Grep patterns like `grep -oE 'd="[^"]*"'` will MISS `<rect>` and `<circle>` tags. Use a broader pattern:
-   ```bash
-   # WRONG: only finds path d-attributes
-   grep -oE 'd="[^"]*"'
-   # RIGHT: finds all SVG element types
-   grep -oE '(d="[^"]*"|<rect[^>]*|<circle[^>]*|<polyline[^>]*)'
-   ```
-   OR fetch the full JS and manually extract all element tags.
+**Conversion from 48×48 JS module to inner SVG paths:**
 
-2. **Every element MUST have `fill="none"` explicitly** — IconPark icons use three color slots:
-   - `props.colors[0]` → stroke color (already fine, convert to `#000000`)
-   - `props.colors[1]` → primary fill (e.g. body rects, large shapes) — set `fill="none" stroke="#000000"`
-   - `props.colors[2]` → secondary fill (e.g. eyes, mouth, decorative dots) — set `fill="none" stroke="#000000"`
-   
-   After reading the full JS source, scan all elements for any occurrence of `fill="' + props.colors[1]` or `fill="' + props.colors[2]`. These MUST be set to `fill="none"` with `stroke="#000000"`.
+The JS module exports a tuple array: `[elementType, attributes][]`.
 
-3. **Fill-dependent complex paths MUST be replaced with stroke equivalents** — Some paths (especially facial features like mouths, smile arcs) are designed to work only as filled shapes. Converting them to `fill="none"` produces garbled thin lines. Detection criteria:
-   - Path uses `V` (vertical-to) and `Z` (close) commands that reference unrelated coordinates
-   - Multiple disjoint subpaths (separated by `M`/`Z`) that together form a fill-only shape
-   - The path looks like it's drawing a filled area rather than a line/outline
-   
-   **Fix**: Replace the fill path with a simple bezier curve:
-   ```html
-   <!-- WRONG: fill-dependent mouth path -->
-   <path d="M20 32C18.8954 32 18 32.8954 18 34C18 35.1046 18.8954 36 20 36V32ZM28 36...Z"/>
-   <!-- RIGHT: stroke-only smile curve -->
-   <path d="M17 34C20 37 28 37 31 34"/>
-   ```
-
-4. **Pre-verification process** — Before adding any IconPark icon, mentally trace EACH of its elements:
-   - Is this element rendered by `fill` or `stroke` in the original? If fill, it needs stroke conversion.
-   - After converting, does it still visually look correct? If the path looks like abstract lines when `fill="none"`, replace it.
-   - Are there `<rect>` or `<circle>` tags I might have missed with a grep that only looks for `d=`
-   
-   The safest approach: **read the full JS source** (curl without grep filter) and manually list all SVG elements before writing the HTML.
-
-5. **⚠️ CRITICAL: Strip `stroke-width` from child elements** — IconPark child elements have explicit `stroke-width="4"`. In the final HTML, these are wrapped in `<g transform="scale(0.5)" stroke-width="1">`. **The child's explicit `stroke-width="4"` overrides the `<g>` tag's inherited value**, resulting in effective stroke = 4 × 0.5 = 2 units — 4× thicker than Feather's 0.5. 
-
-   **Fix**: Remove ALL `stroke-width="4"` from child elements inside the `<g>` block. Let them inherit `stroke-width="1"` from the `<g>` tag. After `scale(0.5)`, effective stroke = 1 × 0.5 = **0.5 units**, matching Feather exactly.
-
-   In Python, this regex strips it from all children:
-   ```python
-   inner = re.sub(r'\s+stroke-width="4"', '', inner)
-   ```
-
-   **Verification**: Every IconPark `<g>` block must be checked — count all blocks and confirm zero have `stroke-width="4"` remaining.
-
-**Iconoir fetch pattern:**
-```bash
-curl -sL "https://cdn.jsdelivr.net/npm/iconoir@7.11.0/icons/regular/<name>.svg"
+```javascript
+// Example: ProcessLine icon module content
+const ProcessLine = [
+  ["rect", { fill: "colors[1]", stroke: "colors[0]", strokeWidth: 4, ... }],
+  ["path", { fill: "colors[2]", ... }],
+  // ...
+];
 ```
-- Icon names are kebab-case (e.g., `bright-star`, `book-stack`, `open-in-window`)
-- **Conversion required**: Change `stroke="currentColor"` to `stroke="#000000"`; add `stroke-linecap="round" stroke-linejoin="round"` if missing
-- **⚠️ CRITICAL: Iconoir SVG tag format varies across icons**. Some use `<svg ... stroke-width="1.5" viewBox="..." ...>` while others use `<svg ... viewBox="..." stroke-width="1.5" ...>` (attribute order differs). Use a regex `re.sub(r'<svg[^>]*>', ...)` to strip the entire opening tag rather than a fixed `replace()` — otherwise some icons will retain the original `stroke-width="1.5"` and wrong attributes.
-- The raw SVG is 24×24 with `stroke-width="1.5"`. After extracting inner paths, wrap in your own `<svg>` tag with `stroke-width="0.5"`.
-- After construction, verify every Iconoir SVG's opening tag has: `stroke-width="0.5"`, `stroke-linecap="round"`, `stroke-linejoin="round"`, `width="24pt" height="24pt"`, `id="..."`.
-- Search available icons: `grep -i '<keyword>'` on the regular/ directory listing
 
-### Step 4: Generate the HTML Output
+**Rules for conversion (MUST follow exactly):**
 
-Generate a single self-contained HTML file with these requirements:
+1. **Extract ALL element types** — not just `<path>`. The JS module contains `<rect>`, `<circle>`, `<path>`, `<polyline>`, `<line>`. Read the full module and enumerate all elements manually.
 
-**Structure:**
-- Single card/block per item with the item name and **6 icon options**
-- Responsive grid layout (1 column on mobile, **6 columns for icons on desktop** — or 3 rows × 2 columns on tablet)
-- Clean, professional design with subtle card styling
+2. **Every element MUST have `fill="none"` explicitly** — Three color slots to convert:
+   - `colors[0]` → stroke color (convert to `#000000`)
+   - `colors[1]` → primary fill (set `fill="none" stroke="#000000"`)
+   - `colors[2]` → secondary fill (set `fill="none" stroke="#000000"`)
 
-**Copy-to-clipboard feature:**
-- Each icon has a "Copy SVG" button
-- On click, copies the raw SVG code (with `<svg>` tag and all attributes) to clipboard
-- Show a brief "已复制!" / "Copied!" feedback animation
-- Use `navigator.clipboard.writeText()` with a `<textarea>` fallback
-- **CRITICAL: No hidden SVGs** — copy function reads SVG paths directly from the visible `<svg>` element using `viewSvg.innerHTML`. Do NOT store duplicate SVG data in hidden elements; this caused border rendering issues and doubled file size.
-- **Color handling**: Copy function **explicitly sets `stroke="#000000"` on the cloned SVG** via `cloned.setAttribute('stroke', '#000000')` — this is more reliable than reading from the visible element. Never use `stroke="currentColor"` — some apps (WeChat, Feishu) can't resolve this CSS keyword and render nothing.
-- **Serialization**: Use `new XMLSerializer().serializeToString(cloned)` rather than `.innerHTML` — this produces a complete SVG string including all namespaced attributes.
-- **Stroke width**: Display and copy both use `0.5pt` (via `COPY_STROKE_WIDTH` variable). Uniform across all icon sources.
+3. **Wrap in `<g transform="scale(0.5)">`** — Put the 48×48 paths inside a group with `transform="scale(0.5)"` for 24×24 viewBox compatibility.
 
-**SVG format rules:**
-- **Uniform 24×24 viewBox** for ALL icons (Feather, Lucide, Phosphor, Iconoir). 
-- **IconPark 48×48 icons**: Wrap original 48×48 paths in `<g transform="scale(0.5)" stroke-width="1">` to scale into 24×24 viewBox. **MUST strip `stroke-width="4"` from all child elements** before wrapping — otherwise child's explicit stroke-width overrides the `<g>` and results in 4× thicker strokes (see IconPark conversion rule #5).
-- **Uniform stroke-width="0.5"** for ALL display SVGs and copied SVGs.
-- `fill="none"`, `stroke="#000000"`, `stroke-linecap="round"`, `stroke-linejoin="round"` on all SVG tags
-- Copied SVG **must include** `xmlns="http://www.w3.org/2000/svg"`, `viewBox="0 0 24 24"`, and **`width="24pt" height="24pt"`** to ensure PPT imports at consistent size and stroke weight
-- `stroke-linecap="round"` and `stroke-linejoin="round"` on SVG tag
-- Width/height for display: `w-10 h-10` (Tailwind) or `width="40" height="40"`
-- **Color customization**: Default stroke color is `#000000`. If the user provides a custom hex color (e.g. "#ff6600" or "red"), use it for all icon strokes.
-- **Stroke width customization**: Default copy stroke is `0.5`. Update the `COPY_STROKE_WIDTH` variable to change.
+4. **⚠️ CRITICAL: Strip ALL `stroke-width` from child elements** — IconPark children have `stroke-width="4"`. Remove with regex:
+   ```python
+   inner = re.sub(r'\s+stroke-width="\d+"', '', inner)
+   ```
+   After stripping, children inherit `stroke-width="1"` from the `<g>` wrapper. With `scale(0.5)`, effective stroke = 0.5 units, matching Feather/Lucide.
 
-**Styling defaults:**
-- Light theme (slate/white background)
-- Tailwind CSS via CDN for layout (`<script src="https://cdn.tailwindcss.com"></script>`)
-- Card hover: slight lift with shadow
-- Copy button: border style, transitions smoothly to "Copied" state
-- Step numbers displayed with gradient badges
-- **Source attribution**: Each icon card must display a small tag/badge showing which icon library it comes from (`Feather`, `Lucide`, `Phosphor`, `IconPark`, `Iconoir`) — this builds user trust and clarifies licensing
-- **Icon color**: All displayed and copied SVGs use `#000000` as default stroke color. If the user specifies a custom color, apply it globally (display SVGs + copy output).
+5. **Fill-dependent complex paths MUST be replaced** — Some paths (facial features, smile arcs, filled shapes) produce garbled thin lines when `fill="none"`. Detection criteria:
+   - Path uses `V` (vertical-to) and `Z` (close) commands referencing unrelated coordinates
+   - Multiple disjoint subpaths forming a fill-only shape
+   - **Fix**: Replace with a simple bezier curve:
+     ```html
+     <!-- WRONG: fill-dependent smile -->
+     <path d="M20 32C18.8954 32 18 32.8954 18 34C18 35.1046...Z"/>
+     <!-- RIGHT: stroke-only smile -->
+     <path d="M17 34C20 37 28 37 31 34"/>
+     ```
+
+6. **Pre-verification**: Before adding any IconPark icon, trace EACH element. The safest approach: read the full JS source (curl without grep filter) and manually list all SVG elements before writing the HTML.
+
+**Final format for the `paths` field in ICON_GROUPS:**
+```javascript
+{ paths: '<g transform="scale(0.5)"><path d="..."/><circle cx="..." r="..."/></g>', source: "IconPark" }
+```
+
+#### B) Feather Icons (MIT, 24×24, stroke=1.5)
+
+Use the reference catalog in `icon-sources.md`. Feather paths are directly usable as-is.
+
+**Final format:**
+```javascript
+{ paths: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>', source: "Feather" }
+```
+
+#### C) Lucide Icons (ISC, 24×24, stroke=2)
+
+```bash
+curl -sL "https://unpkg.com/lucide-static@latest/icons/<kebab-name>.svg"
+```
+
+- Names are kebab-case (e.g., `search.svg`, `user-circle.svg`, `file-text.svg`)
+- Default SVG: viewBox="0 0 24 24", stroke-width="2"
+- Search available icon names: `curl -sL "https://unpkg.com/lucide-static@latest/" | grep -o 'icons/[a-z-]*\.svg' | sort -u`
+
+**Conversion required:**
+1. Read the raw SVG file
+2. Extract inner elements (<path>, <circle>, <rect>, <line>, <polyline>, <polygon>)
+3. **Strip `stroke-width="2"` from child elements** — Let the template's wrapper SVG (`stroke-width="1.5"`) control the stroke. The clipboard copy function will use the correct 0.5pt.
+
+```python
+# Strip explicit stroke-width from Lucide children
+inner = re.sub(r'\s+stroke-width="2"', '', inner)
+```
+
+**Final format:**
+```javascript
+{ paths: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/>', source: "Lucide" }
+```
+
+#### D) Phosphor Icons (MIT, 24×24, stroke=1.5)
+
+Paths are directly usable from the reference catalog. Phosphor uses 24×24 viewBox with stroke-width="1.5".
+
+**Final format:**
+```javascript
+{ paths: '<path d="..."/>', source: "Phosphor" }
+```
+
+#### E) Iconoir (MIT, 24×24, stroke=1.5)
+
+```bash
+curl -sL "https://cdn.jsdelivr.net/npm/iconoir@7.11.0/icons/regular/<kebab-name>.svg"
+```
+
+- Names are kebab-case (e.g., `bright-star.svg`, `book-stack.svg`)
+- Search: `curl -sL "https://unpkg.com/iconoir@7.11.0/icons/regular/" | grep -o 'href="[^"]*\.svg"' | sort -u`
+
+**Conversion required:**
+1. Fetch the raw SVG file
+2. Extract inner elements
+3. Convert `stroke="currentColor"` to `stroke="#000000"` in inner elements (the template handles the wrapper SVG's stroke)
+4. Strip the original `<svg>` opening tag entirely — use regex `re.sub(r'<svg[^>]*>', '', svg_content)` because attribute order varies across icons
+5. Strip `stroke-width="1.5"` from child elements for consistency
+
+```python
+inner = re.sub(r'<svg[^>]*>', '', svg_content)
+inner = re.sub(r'</svg>', '', inner)
+inner = inner.replace('stroke="currentColor"', 'stroke="#000000"')
+inner = re.sub(r'\s+stroke-width="1.5"', '', inner)
+```
+
+**Verify** that every resulting Iconoir icon entry has no extraneous attributes.
+
+**Final format:**
+```javascript
+{ paths: '<path d="..."/><circle cx="..." cy="..." r="..."/>', source: "Iconoir" }
+```
+
+#### F) Huge Icons — Free Pack (MIT, 24×24, stroke=1.5)
+
+```bash
+curl -sL "https://cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/esm/<PascalCase>Icon.js"
+```
+
+- Names are PascalCase with "Icon" suffix (e.g., `Home01Icon`, `Search01Icon`, `UserIcon`, `AiSearchIcon`)
+- 5400+ free icons (Stroke Rounded style)
+- Package: `@hugeicons/core-free-icons` — MIT License
+- Search available icon names: `curl -sL "https://cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/types/index.d.ts" | grep -oE 'declare const [A-Za-z0-9]+Icon' | sed 's/declare const //' | sort -u`
+
+**Data format (tuple array):**
+```javascript
+// Raw output from the JS module
+const Search01Icon = [
+  ["path", { d: "M...", stroke: "currentColor", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round", key: "0" }],
+  ["circle", { cx: "11", cy: "11", r: "8", stroke: "currentColor", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round", key: "1" }]
+];
+```
+
+**Conversion from tuple array to inner SVG paths:**
+
+1. Parse each tuple `[elementType, attributes]`:
+   - `elementType` is the SVG tag name (e.g., "path", "circle", "rect", "line", "polyline", "polygon")
+   - `attributes` is a plain object with key-value pairs
+
+2. Convert each tuple to an SVG element string:
+   - Drop the `key` attribute (internal Hugeicons tracking, not valid SVG)
+   - Convert `strokeWidth` → `stroke-width`, `strokeLinecap` → `stroke-linecap`, `strokeLinejoin` → `stroke-linejoin` (camelCase to kebab-case)
+   - Convert boolean or numeric values to strings as needed
+
+3. **Strip `stroke-width="1.5"` from all child elements** — Let the template wrapper control it
+4. **Change `stroke="currentColor"` to `stroke="#000000"`** on child elements for static rendering
+
+```python
+# Example Python conversion
+import re
+import json
+
+raw = [
+  ["path", {"d": "M...", "stroke": "currentColor", "strokeWidth": "1.5", "strokeLinecap": "round", "strokeLinejoin": "round"}],
+  ["circle", {"cx": "11", "cy": "11", "r": "8", "stroke": "currentColor", "strokeWidth": "1.5"}]
+]
+
+def to_svg(element):
+  tag, attrs = element
+  # Remove internal keys
+  attrs.pop('key', None)
+  # Convert camelCase to kebab-case
+  kebab = {}
+  for k, v in attrs.items():
+    kebab_key = re.sub(r'([a-z])([A-Z])', r'\1-\2', k).lower()
+    if kebab_key == 'stroke-width':
+      continue  # Let template control stroke width
+    if kebab_key == 'stroke' and v == 'currentColor':
+      v = '#000000'
+    kebab[kebab_key] = str(v)
+  attrs_str = ' '.join(f'{k}="{v}"' for k, v in kebab.items())
+  if tag in ('circle', 'rect', 'ellipse', 'line'):
+    return f'<{tag} {attrs_str}/>'
+  else:  # path, polyline, polygon
+    return f'<{tag} {attrs_str}/>'
+
+paths_inner = ''.join(to_svg(e) for e in raw)
+# Result: '<path d="M..." stroke="#000000" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11" cy="11" r="8" stroke="#000000"/>'
+```
+
+**Alternatively** for manual conversion (simpler approach):
+1. Read the JS file
+2. Extract each tuple's element type and attributes
+3. Write as SVG elements with camelCase→kebab-case conversion
+4. Remove `key` attributes, `strokeWidth`, and convert `stroke="currentColor"` to `stroke="#000000"`
+
+**Final format:**
+```javascript
+{ paths: '<path d="M..."/><circle cx="11" cy="11" r="8"/>', source: "Huge Icons" }
+```
+
+### Step 4: Build the ICON_GROUPS Data Array
+
+**Do NOT generate a full HTML file from scratch.** Use the canonical template `assets/icons-template.html`. Copy it to a new file, then edit only three sections:
+
+1. `PAGE_TITLE` — Set to a descriptive title
+2. `ICON_COLOR` — Default `'#000000'`; change only if user requests a specific color
+3. `ICON_GROUPS` — The data array (see below)
+
+**Template structure — do NOT modify rendering code or copy functions:**
+
+```javascript
+const ICON_GROUPS = [
+  {
+    name: "组名",                          // Section heading
+    icons: [
+      {                                    // 1-6 icons per group
+        paths: '<circle cx="12" cy="12" r="10"/>...',  // SVG inner HTML (no <svg> wrapper)
+        source: "Feather"                               // Source badge text
+      },
+      // ...
+    ]
+  },
+  // ...
+];
+```
+
+**Rules:**
+- Each `paths` value is the **inner HTML** of the SVG — just the element tags, no `<svg>` wrapper
+- Each icon MUST pass all 8 quality rules
+- For IconPark (48×48 scaled): wrap in `<g transform="scale(0.5)">` with stroke-width stripped
+- For Lucide: strip `stroke-width="2"` from children
+- For Huge Icons: convert tuple array to SVG element strings, strip `strokeWidth`, convert `currentColor`→`#000000`
+- Aim for 6 icons per group. Min 1, max 6.
 
 ### Step 5: Deliver
 
-1. Write the HTML to `icons.html` in the workspace root
-2. Use `preview_url` to show it in the browser
-3. Summarize what was generated in text
+1. Copy `assets/icons-template.html` to a new file (e.g., `icons.html`)
+2. Edit the copy: fill `PAGE_TITLE` and `ICON_GROUPS`
+3. Open in browser to verify rendering
+4. Present the file to the user
 
-## References Reference
+## Multiple Source Distribution Rule
 
-Always load `references/icon-sources.md` into context when executing this skill. It contains the full icon catalog with SVG path data organized by semantic category, enabling rapid icon selection without external lookups.
+When building ICON_GROUPS, ensure each group's 6 icons draw from at least 3 different sources. This maximizes visual diversity and reduces the chance of duplicate-looking icons. Preferred distribution: 2-3 IconPark + 2-3 Feather/Lucide + 1-2 from the remaining 3 sources.
 
 ## Fallback Behavior
 
-- If an item has no obvious icon match in the reference catalog, use a generic icon (star, heart, bookmark) as the last option
-- If the user provides fewer than 4 items, still generate 6 icons per item
-- If the user provides more than 20 items, warn and ask to split into batches of 10
+- No obvious icon match → use generic icons (star, heart, bookmark, circle-dot) as the last option
+- Fewer than 4 items → still generate 6 icons per item
+- More than 20 items → warn and ask to split into batches of 10
 
 ## Resources
 
 ### references/
-- `icon-sources.md` — Full icon catalog organized by semantic category with SVG path data
+- `icon-sources.md` — Full icon catalog organized by semantic category with SVG path data. Load this into context before executing the skill.
 
 ### assets/
-- (No assets needed — everything is generated programmatically)
+- `icons-template.html` — Canonical data-driven template file. Copy this to start a new icon set, then edit `ICON_GROUPS` and `PAGE_TITLE`. Do NOT modify the rendering code or copy functions.
 
 ### scripts/
-- (No scripts needed — the icon mapping is done via reference lookup in context)
+- (Empty — all icon mapping is done via reference catalog lookup and CDN fetch)

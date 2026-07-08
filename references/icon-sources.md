@@ -4,13 +4,14 @@ A curated catalog of SVG path data for linear/outline icons, organized by semant
 
 ## Sources & Licenses
 
-| Source | License | Base URL | viewBox | Stroke | Notes |
-|--------|---------|----------|---------|--------|-------|
-| Feather Icons | MIT | https://feathericons.com | 24×24 | 1.5 | 286 icons, minimal |
-| Lucide Icons | ISC | https://lucide.dev | 24×24 | 1.5 | 1400+ icons, Feather fork |
-| Phosphor Icons | MIT | https://phosphoricons.com | 24×24 | 1.5 | 9000+ icons, thin/light variants |
-| IconPark | Apache 2.0 | https://iconpark.oceanengine.com | 48×48 | 4→3 | 2600+ icons; fetch JS modules from unpkg CDN |
-| Iconoir | MIT | https://iconoir.com | 24×24 | 1.5 | 1600+ icons; fetch raw SVGs from jsdelivr CDN |
+| Source | License | Base URL | viewBox | Stroke | Icons | Fetch Method |
+|--------|---------|----------|---------|--------|-------|-------------|
+| Feather Icons | MIT | https://feathericons.com | 24×24 | 1.5 | 286 | Reference catalog below |
+| Lucide Icons ⭐ | ISC | https://lucide.dev | 24×24 | 2→1.5 | 1400+ | `unpkg.com/lucide-static@latest/icons/<kebab>.svg`; strip stroke-width; or reference catalog below |
+| Phosphor Icons | MIT | https://phosphoricons.com | 24×24 | 1.5 | 9000+ | Reference catalog below |
+| IconPark ⭐ | Apache 2.0 | https://iconpark.oceanengine.com | 48×48 | 4→0.5 | 2600+ | `unpkg.com/@icon-park/svg@1.4.2/es/<Pascal>.js`; scale(0.5), strip |
+| Iconoir | MIT | https://iconoir.com | 24×24 | 1.5 | 1600+ | `cdn.jsdelivr.net/npm/iconoir@7.11.0/icons/regular/<kebab>.svg` |
+| Huge Icons ⭐ | MIT | https://hugeicons.com | 24×24 | 1.5 | 5400+ free | `cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/esm/<Pascal>Icon.js` |
 
 ---
 
@@ -418,3 +419,37 @@ Paths: `<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>`
 
 ### bookmark
 Paths: `<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>`
+
+---
+
+## Huge Icons — Free Pack Quick Reference
+
+Quick mapping of Huge Icons (PascalCase+Icon) names by semantic category. Fetch pattern: `cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/esm/<Name>Icon.js`
+
+Search all available names:
+```bash
+curl -sL "https://cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/types/index.d.ts" | grep -oE 'declare const [A-Za-z0-9]+Icon' | sed 's/declare const //' | sort -u
+```
+
+| Category | Recommended Huge Icons Names |
+|----------|------------------------------|
+| Search / Discovery | `Search01Icon`, `SearchZoomInIcon`, `SearchZoomOutIcon`, `SearchListIcon`, `CompassIcon`, `TargetIcon`, `FilterIcon`, `ZoomInIcon` |
+| Data / Analysis / Insight | `ChartLineIcon`, `ChartBarIcon`, `ChartPieIcon`, `Chart01Icon`, `EyeIcon`, `Lightbulb01Icon`, `Activity01Icon`, `TrendUp01Icon` |
+| People / User / Visit | `UserIcon`, `UserGroupIcon`, `UserPlusIcon`, `UserCheckIcon`, `UserHeartIcon`, `HandshakeIcon`, `Door01Icon`, `PhoneIcon` |
+| Marketing / Promotion | `MegaphoneIcon`, `TrophyIcon`, `StarIcon`, `GiftIcon`, `Send01Icon`, `BadgeCheckIcon`, `ThumbsUpIcon`, `BullhornIcon` |
+| Price / Money / Quotation | `DollarCircleIcon`, `DollarIcon`, `CreditCardIcon`, `Tag01Icon`, `CalculatorIcon`, `ReceiptIcon`, `Coins01Icon`, `Wallet01Icon`, `MoneyReceiveIcon` |
+| Contract / Document / Sign | `File01Icon`, `FilePlusIcon`, `FileCheckIcon`, `EditIcon`, `ClipboardIcon`, `ClipboardCheckIcon`, `NoteIcon`, `SignatureIcon` |
+| Project / Task / Implement | `LayersIcon`, `ClipboardListIcon`, `CheckCircleIcon`, `FlagIcon`, `TargetIcon`, `TaskListIcon`, `ProgressIcon`, `KanbanIcon` |
+| Product / Config / Setup | `BoxIcon`, `PackageIcon`, `Settings01Icon`, `SliderIcon`, `GridIcon`, `WrenchIcon`, `ToolIcon`, `Config01Icon` |
+| Business / Service | `Book01Icon`, `Building01Icon`, `BriefcaseIcon`, `MonitorIcon`, `GlobeIcon`, `DatabaseIcon`, `ServerIcon`, `OfficeIcon` |
+| Activation / Launch | `ZapIcon`, `PlusCircleIcon`, `PlayIcon`, `PowerIcon`, `Rocket01Icon`, `SunriseIcon`, `LaunchIcon`, `BoltIcon` |
+| Billing / Invoice | `MonitorIcon`, `PrinterIcon`, `DollarCircleIcon`, `ChartBarIcon`, `ReceiptCheckIcon`, `Invoice01Icon`, `BillIcon` |
+| Settlement / Cart | `ShoppingCart01Icon`, `CancelCircleIcon`, `Delete01Icon`, `CheckCircleIcon`, `BanIcon`, `BasketIcon`, `CartIcon` |
+| Completion / Done | `CheckmarkCircle01Icon`, `SmileIcon`, `Award01Icon`, `VerifiedIcon`, `ArchiveIcon`, `CheckDoneIcon`, `CertificateIcon` |
+| Service / Maintenance | `WrenchIcon`, `RepairIcon`, `TerminalIcon`, `CodeIcon`, `CpuIcon`, `ToolIcon`, `SettingsIcon`, `ServiceIcon` |
+| Risk / Security / Audit | `Shield01Icon`, `ShieldCheckIcon`, `AlertTriangleIcon`, `AlertCircleIcon`, `LockIcon`, `UnlockIcon`, `SecurityIcon`, `SearchShieldIcon` |
+| Training / Learning | `BookOpenIcon`, `GraduationCapIcon`, `PresentationIcon`, `CertificateIcon`, `CourseIcon`, `LearningIcon`, `EducationIcon` |
+| Communication / Chat | `Message01Icon`, `ChatIcon`, `Mail01Icon`, `PhoneIcon`, `VideoIcon`, `SpeechBubbleIcon`, `InboxIcon` |
+| AI / Intelligence | `AiBrainIcon`, `AiChatIcon`, `AiChipIcon`, `AiSearchIcon`, `RobotIcon`, `BotIcon`, `ArtificialIntelligenceIcon` |
+
+**Conversion note:** Huge Icons JS modules export a tuple array `[["path",{attrs}], ["circle",{attrs}], ...]`. Convert each tuple to SVG element: camelCase attrs → kebab-case, drop `key` attribute, strip `strokeWidth`, convert `stroke="currentColor"` → `stroke="#000000"`. See Step 3(F) in SKILL.md for full details.
