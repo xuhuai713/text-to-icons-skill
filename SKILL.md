@@ -22,6 +22,11 @@ Every icon in the output MUST pass ALL these checks:
 6. **Path density check** — Max 6 path elements (paths/lines/circles/rects/polylines) unless every element is clearly distinguishable at 28×28px.
 7. **Shape integrity check** — Reject squashed circles, mismatched corners, disconnected lines, unintentional overlapping (杂糅).
 8. **Visual weight balance** — Strokes must be evenly distributed across the 24×24 viewBox. Reject icons where >70% of strokes cram into one corner.
+9. **⚠️ Stroke uniformity across sources** — All icons in the same HTML file must render at visually identical stroke thickness. The template wrapper uses `stroke-width="1.5"` for display and `COPY_STROKE_WIDTH="0.5"` for clipboard. Each source must follow its specific conversion to match:
+   - **IconPark (scaled)**: `<g transform="scale(0.5)" stroke-width="3">` → effective display stroke = 3 × 0.5 = 1.5 (matches template). See Step 3(A) for details.
+   - **Feather/Huge/Phosphor (native 24×24)**: strip explicit stroke-width from children, let template wrapper control (inherit 1.5 for display, 0.5 for clipboard).
+   - **Lucide/Iconoir (native 24×24)**: strip explicit stroke-width from children (Lucide=2, Iconoir=1.5), let template wrapper control.
+   - **Verification**: After building ICON_GROUPS, visually scan the rendered page — if any icon appears visibly thinner or thicker, check its g wrapper and child stroke-width.
 
 ## When to Use
 
@@ -31,15 +36,32 @@ Every icon in the output MUST pass ALL these checks:
 - User wants copyable SVG icons for design tools or frontend projects
 - User requests linear/outline icons with consistent stroke style
 
+## ⚙️ Icon Source Priority Hierarchy (MUST FOLLOW)
+
+每次生成图标时，严格按以下优先级选择图标源，**不允许随机取样或随意分配**：
+
+| 层级 | 源 | 许可证 | 图标数 | 使用条件 |
+|------|---|--------|--------|---------|
+| **Tier 1 ⭐** | **IconPark** (核心) | Apache 2.0 | 2600+ | **默认首选**。先搜索 IconPark 是否有匹配的图标。每个组至少 3 个 IconPark 图标 |
+| **Tier 2** | **Feather Icons** | MIT | 286 | IconPark 无匹配或不符合质量规则时使用。每个组最多 2 个 |
+| **Tier 2** | **Huge Icons** (free) | MIT | 5400+ | IconPark 无匹配时使用。与 Feather 同级，优先选视觉差异更大的 |
+| **Tier 3** | **Lucide Icons** | ISC | 1400+ | Tier 1+2 均不满足时最后使用。Lucide 是 Feather 衍生，仅作补充 |
+| **Tier 3** | **Phosphor Icons** | MIT | 9000+ | 特殊形状需求时使用 |
+| **Tier 3** | **Iconoir** | MIT | 1600+ | 特殊形状需求时使用 |
+
+**判断流程：**
+1. 对每个概念，先在 IconPark 中搜索 3-4 个匹配图标
+2. 如果 IconPark 匹配不足（无对应图标或路径密度超标/视觉失衡），从 Tier 2（Feather / Huge Icons）补齐
+3. 仅当 Tier 1+2 仍不足 6 个时，才从 Tier 3 中选取
+4. 同一组内确保 3 个不同层级以上的来源（如：IconPark ×3 + Feather ×2 + Lucide ×1）
+
 ## Icon Source Reference
 
 Always load `references/icon-sources.md` into context. It contains the full catalog organized by semantic category with SVG path data for rapid lookup without external fetching.
 
-Six active sources. Distribute selections across at least 3 libraries per group, prefer 2-3 from IconPark, 2-3 from Feather/Lucide, and 1-2 from the remaining sources:
-
 | Source | License | Icons | viewBox | Default Stroke | Fetch Method |
 |--------|---------|-------|---------|----------------|--------------|
-| **IconPark** ⭐ (core) | Apache 2.0 | 2600+ | 48×48 | 4 | `unpkg.com/@icon-park/svg@1.4.2/es/icons/<PascalCase>.js`; scale(0.5), strip stroke-width |
+| **IconPark** ⭐ (core) | Apache 2.0 | 2600+ | 48×48 | 4 | `unpkg.com/@icon-park/svg@1.4.2/es/icons/<PascalCase>.js`; scale(0.5), stroke-width=3 on g |
 | **Feather Icons** | MIT | 286 | 24×24 | 1.5 | Reference catalog in `icon-sources.md` |
 | **Lucide Icons** | ISC | 1400+ | 24×24 | 2 | `unpkg.com/lucide-static@latest/icons/<kebab-name>.svg`; strip stroke-width="2" |
 | **Phosphor Icons** | MIT | 9000+ | 24×24 | 1.5 | Reference catalog in `icon-sources.md` |
@@ -56,12 +78,14 @@ Extract all discrete items from the user's text. Separators: newlines, numbered/
 
 For each item, painstakingly hand-pick 6 icons that pass ALL 8 quality rules. This is the most critical step.
 
-**Icon selection process:**
+**Icon selection process — strict priority order (not random):**
 1. Identify the core concept (e.g., "线索挖掘" = search/discovery)
-2. Look up the reference catalog; mentally verify each candidate
-3. Reject any icon whose meaning is not instantly clear
-4. Select exactly 6 icons with DISTINCT visual forms
-5. Distribute across at least 3 libraries (prefer 2-3 IconPark, 2-3 Feather/Lucide, 1-2 from others)
+2. **First**: Search IconPark catalog for matching icons → select 3-4 candidates
+3. **Second**: If more icons needed, search Feather catalog and Huge Icons for best matches → select 1-2
+4. **Third**: Only if still short of 6, search Lucide/Phosphor/Iconoir → select 1
+5. Reject any candidate that fails quality rules; if rejected, move to next source in hierarchy
+6. Select exactly 6 icons with DISTINCT visual forms
+7. Ensure at least 3 different sources are represented (but always favor higher-tier sources)
 
 **Selection quality benchmarks:**
 
@@ -120,20 +144,35 @@ const ProcessLine = [
 
 1. **Extract ALL element types** — not just `<path>`. The JS module contains `<rect>`, `<circle>`, `<path>`, `<polyline>`, `<line>`. Read the full module and enumerate all elements manually.
 
-2. **Every element MUST have `fill="none"` explicitly** — Three color slots to convert:
-   - `colors[0]` → stroke color (convert to `#000000`)
-   - `colors[1]` → primary fill (set `fill="none" stroke="#000000"`)
-   - `colors[2]` → secondary fill (set `fill="none" stroke="#000000"`)
+2. **Color slot conversion (handles 3 color slots):**
+   - `colors[0]` → stroke color → replace with `#000000` (appears in `stroke=` attribute)
+   - `colors[1]` → primary fill (body rects, large shapes) → replace with `#000000`, then for elements using `fill="#000000"`, convert to `fill="none" stroke="#000000"`
+   - `colors[2]` → secondary fill (decorative dots/lines) → replace with `#000000`, same fill→stroke conversion
+   - **⚠️ Exception**: `colors[2]` may appear in `stroke=` attribute (not `fill=`) — this is correct as-is: `stroke="#000000"`
+   - **⚠️ Edge case**: Some icons use `colors[3]` (e.g., Cpu icon's inner square) — treat same as `colors[1]`/`[2]`: convert to `#000000` then `fill="none" stroke="#000000"`
 
-3. **Wrap in `<g transform="scale(0.5)">`** — Put the 48×48 paths inside a group with `transform="scale(0.5)"` for 24×24 viewBox compatibility.
+3. **Wrap in `<g transform="scale(0.5)" stroke-width="3">`** — Put the 48×48 paths inside a group with `transform="scale(0.5)"` AND explicit `stroke-width="3"`. This ensures:
+   - **Display rendering**: children use stroke-width=3 through inheritance. After scale(0.5), effective stroke = 3 × 0.5 = **1.5 units**, matching Feather/Huge Icons exactly (they inherit 1.5 from template wrapper with no scaling)
+   - **Clipboard copy**: children inherit 3 from `<g>`, effective = 3 × 0.5 = 1.5. Feather clipboard = 0.5. Accept this trade-off (display uniformity > clipboard uniformity). If user requests uniform clipboard, strip g's stroke-width during copy.
 
 4. **⚠️ CRITICAL: Strip ALL `stroke-width` from child elements** — IconPark children have `stroke-width="4"`. Remove with regex:
    ```python
    inner = re.sub(r'\s+stroke-width="\d+"', '', inner)
    ```
-   After stripping, children inherit `stroke-width="1"` from the `<g>` wrapper. With `scale(0.5)`, effective stroke = 0.5 units, matching Feather/Lucide.
+   After stripping, children inherit `stroke-width="3"` from the `<g>` wrapper. See rule 3 for effective stroke calculation.
 
-5. **Fill-dependent complex paths MUST be replaced** — Some paths (facial features, smile arcs, filled shapes) produce garbled thin lines when `fill="none"`. Detection criteria:
+5. **Fill-to-stroke conversion for `colors[1]`/`colors[2]`/`colors[3]`:**
+   ```python
+   # After replacing color variables with '#000000':
+   # Elements that had fill="colors[1]" now have fill="#000000"
+   # Convert them to linear style:
+   inner = inner.replace('fill="#000000"', 'fill="none" stroke="#000000"')
+   # Clean up duplicate stroke attributes (when element had both fill and stroke originally):
+   inner = inner.replace('fill="none" stroke="#000000" stroke="#000000"', 'fill="none" stroke="#000000"')
+   inner = inner.replace('stroke="#000000" stroke="#000000"', 'stroke="#000000"')
+   ```
+
+6. **Fill-dependent complex paths MUST be replaced** — Some paths (facial features, smile arcs, filled shapes) designed as filled areas may produce garbled thin lines when `fill="none"`. Detection criteria:
    - Path uses `V` (vertical-to) and `Z` (close) commands referencing unrelated coordinates
    - Multiple disjoint subpaths forming a fill-only shape
    - **Fix**: Replace with a simple bezier curve:
@@ -144,11 +183,11 @@ const ProcessLine = [
      <path d="M17 34C20 37 28 37 31 34"/>
      ```
 
-6. **Pre-verification**: Before adding any IconPark icon, trace EACH element. The safest approach: read the full JS source (curl without grep filter) and manually list all SVG elements before writing the HTML.
+7. **Pre-verification**: Before adding any IconPark icon, trace EACH element. The safest approach: read the full JS source (curl without grep filter) and manually list all SVG elements before writing the HTML.
 
 **Final format for the `paths` field in ICON_GROUPS:**
 ```javascript
-{ paths: '<g transform="scale(0.5)"><path d="..."/><circle cx="..." r="..."/></g>', source: "IconPark" }
+{ paths: '<g transform="scale(0.5)" stroke-width="3"><path d="..."/><circle cx="..." r="..."/></g>', source: "IconPark" }
 ```
 
 #### B) Feather Icons (MIT, 24×24, stroke=1.5)
@@ -331,7 +370,7 @@ const ICON_GROUPS = [
 **Rules:**
 - Each `paths` value is the **inner HTML** of the SVG — just the element tags, no `<svg>` wrapper
 - Each icon MUST pass all 8 quality rules
-- For IconPark (48×48 scaled): wrap in `<g transform="scale(0.5)">` with stroke-width stripped
+- For IconPark (48×48 scaled): wrap in `<g transform="scale(0.5)" stroke-width="3">` with child stroke-width stripped (ensures display stroke matches Feather at 1.5)
 - For Lucide: strip `stroke-width="2"` from children
 - For Huge Icons: convert tuple array to SVG element strings, strip `strokeWidth`, convert `currentColor`→`#000000`
 - Aim for 6 icons per group. Min 1, max 6.
@@ -343,9 +382,14 @@ const ICON_GROUPS = [
 3. Open in browser to verify rendering
 4. Present the file to the user
 
-## Multiple Source Distribution Rule
+## Priority Enforcement Check
 
-When building ICON_GROUPS, ensure each group's 6 icons draw from at least 3 different sources. This maximizes visual diversity and reduces the chance of duplicate-looking icons. Preferred distribution: 2-3 IconPark + 2-3 Feather/Lucide + 1-2 from the remaining 3 sources.
+Before delivering, verify each group's icon selection against the priority hierarchy:
+
+1. **Count per tier**: Tier 1 (IconPark) ≥ 3 per group? Tier 2 (Feather/Huge) ≤ 2? Tier 3 (Lucide/others) ≤ 1?
+2. **Reason for downgrade**: If any icon comes from Tier 2 or 3, verify that IconPark genuinely lacked a matching icon (no equivalent concept, or all candidates failed quality rules)
+3. **Stroke uniformity**: Check that IconPark icons use `<g transform="scale(0.5)" stroke-width="3">` — not bare `<g transform="scale(0.5)">` which would make them half as thick as Feather icons
+4. **No random pick**: Every icon selection must be traceable to the priority hierarchy decision logic
 
 ## Fallback Behavior
 
