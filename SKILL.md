@@ -116,7 +116,36 @@ For each item, pick 6 icons covering distinct visual forms:
 
 ### Step 3: Fetch SVG Paths from Icon Sources
 
-For each icon needed, fetch SVG path data from the appropriate source.
+**⚡ 本地缓存优先（默认路径）**：本技能随包附带 `assets/icon-cache.json`——由 `scripts/precache.py` 预抓取并转换好的全部图标 inner-SVG。生成时**直接从此缓存读取**，无需联网，速度从「跨洋串行抓取 ~75s」降到「本地读盘 <1s」。
+
+**读取方式（任选其一）：**
+
+1. 用自带工具函数（推荐）：`scripts/icon_cache.py` 提供 `get_icon(source, name)`，
+   优先返回缓存，缓存未命中时自动回退 CDN 实时抓取并转换：
+   ```python
+   import sys, json
+   sys.path.insert(0, "<skill>/scripts")
+   from icon_cache import get_icon
+   paths = get_icon("IconPark", "People")           # 返回 inner-SVG 字符串
+   paths = get_icon("Huge Icons", "Search01Icon")
+   ```
+2. 直接读 JSON：
+   ```python
+   import json
+   cache = json.load(open("<skill>/assets/icon-cache.json", encoding="utf-8"))
+   paths = cache["IconPark"]["People"]               # 键名 = 图标名（见下表）
+   ```
+
+**缓存键名规则（与各源一致）：**
+
+| 源 | 键名（name）示例 | 说明 |
+|----|----------------|------|
+| IconPark | `People`, `CameraOne` | PascalCase，去掉 `.js` |
+| Huge Icons | `Search01Icon` | PascalCase + `Icon` 后缀 |
+| Lucide | `search`, `user-circle` | kebab-case，去掉 `.svg` |
+| Feather | `search`, `user` | kebab-case，去掉 `.svg` |
+
+**仅当缓存确实缺失该图标时**，才使用下方各源的 CDN 抓取方式作为兜底（并建议跑一次 `python scripts/precache.py --source <源>` 把新图标写回缓存）。
 
 #### A) IconPark (Core Source — Apache 2.0, 48×48 → 24×24 scaled)
 
@@ -409,67 +438,60 @@ paths_inner = ''.join(to_svg(e) for e in raw)
 
 ### Step 4: Build the ICON_GROUPS Data Array
 
-**Do NOT generate a full HTML file from scratch.** Use the canonical template `assets/icons-template.html`. Copy it to a new file, then edit only three sections:
+**Use the unified CLI tool `scripts/build_icons.py` to generate HTML.** It reads a groups JSON file (concept→icon mappings), injects data into the canonical template, runs JS syntax validation, and writes the output in one command.
 
-1. `PAGE_TITLE` — Set to a descriptive title
-2. `ICON_COLOR` — Default `'#000000'`; change only if user requests a specific color
-3. `ICON_GROUPS` — The data array (see below)
-
-**Template structure — do NOT modify rendering code or copy functions:**
-
-```javascript
-const ICON_GROUPS = [
+**groups.json format:**
+```json
+[
   {
-    name: "组名",                          // Section heading
-    icons: [
-      {                                    // 1-6 icons per group
-        paths: '<circle cx="12" cy="12" r="10"/>...',  // SVG inner HTML (no <svg> wrapper)
-        source: "Feather"                               // Source badge text
-      },
-      // ...
+    "name": "组名",
+    "icons": [
+      ["IconPark", "Road"],
+      ["Huge Icons", "Road01Icon"],
+      ["Lucide", "train-track"]
     ]
-  },
-  // ...
-];
+  }
+]
 ```
+
+**CLI usage:**
+```bash
+# 全量生成（替换所有 ICON_GROUPS）
+python build_icons.py --groups groups.json --output icons.html --title "标题"
+
+# 追加模式（向已有 HTML 追加新组，自动跳过重复组名）
+python build_icons.py --append groups.json --html existing.html
+
+# 缓存搜索（按英文关键词查找匹配图标）
+python build_icons.py --search "drone airplane robot"
+```
+
+**Template reference:** `assets/icons-template.html` — fully self-contained (0 external dependencies, inline CSS, system fonts). All Tailwind utilities have been replaced with inline CSS rules; the page renders offline without CDN calls.
 
 **Rules:**
 - Each `paths` value is the **inner HTML** of the SVG — just the element tags, no `<svg>` wrapper
 - Each icon MUST pass all 8 quality rules
-- For IconPark (48×48 scaled): wrap in `<g transform="scale(0.5)" stroke-width="3">` with child stroke-width stripped (ensures display stroke matches Feather at 1.5)
+- For IconPark (48×48 scaled): wrap in `<g transform="scale(0.5)" stroke-width="3">` with child stroke-width stripped
 - For Lucide: strip `stroke-width="2"` from children
 - For Huge Icons: convert tuple array to SVG element strings, strip `strokeWidth`, convert `currentColor`→`#000000`
 - Aim for 6 icons per group. Min 1, max 6.
+- **⚠️ CRITICAL: Sanitize paths.** The CLI tool handles this internally — `re.sub(r'\s+', ' ', paths).strip()` + escaping.
 
 ### Step 5: Deliver
 
-1. Copy `assets/icons-template.html` to a new file (e.g., `icons.html`)
-2. Edit the copy: fill `PAGE_TITLE` and `ICON_GROUPS`
-3. Open in browser to verify rendering
-4. Present the file to the user
+1. Compile icon selections into a `groups.json` file (see Step 4 format)
+2. Run `build_icons.py --groups groups.json --output icons.html --title "标题"`
+   - The CLI reads the cache, builds ICON_GROUPS JS, injects into the template, runs `node --check` automatically
+3. If extending an existing page, use `build_icons.py --append groups.json --html existing.html`
+   - Built-in dedup: automatically skips groups whose `name` already appears in the target file
+4. Present the output HTML to the user
+5. Clean up the temporary `groups.json` — it's a build artifact, not a deliverable
 
-**⚠️ CRITICAL: Do NOT delete the template's rendering functions when replacing ICON_GROUPS.**
-The template has this structure:
-
+**🚀 New workflow (post-optimization):**
 ```
-const ICON_GROUPS = [...];     // ← replace this block only
-                              // ← keep everything below
-// ═══════ 渲染引擎 ——— 无需修改 ═══════
-function buildSvgTag(paths) { ... }  // ← MUST preserve
-function renderIcons() { ... }       // ← MUST preserve
-renderIcons();                       // ← MUST preserve
-function copySVG(btn) { ... }        // ← MUST preserve
+icon selections → groups.json → build_icons.py --groups → deliver
 ```
-
-When doing a string replacement (e.g., via Python script), match from `const ICON_GROUPS = [` to `];` (the closing semicolon of ICON_GROUPS), NOT to `function renderIcons()`. The `buildSvgTag` function sits between them. Missing it = blank page.
-
-**Example safe replacement in Python:**
-```python
-start = template.find('const ICON_GROUPS = [')
-# Find the ]; that closes ICON_GROUPS (not one inside)
-end = template.find('\n];\n\n// ═══════════\n// 渲染引擎', start) + 2
-new_template = template[:start] + new_groups_js + template[end:]
-```
+No manual template editing, no throwaway Python scripts, no separate validation step.
 
 ## Priority Enforcement Check
 
@@ -493,10 +515,13 @@ Before delivering, verify each group's icon selection against the priority hiera
 - `icon-sources.md` — Full icon catalog organized by semantic category with SVG path data. Load this into context before executing the skill.
 
 ### assets/
-- `icons-template.html` — Canonical data-driven template file. Copy this to start a new icon set, then edit `ICON_GROUPS` and `PAGE_TITLE`. Do NOT modify the rendering code or copy functions.
+- `icons-template.html` — 数据驱动模板（**0 外部依赖**，内联 CSS + 系统字体，离线可用）。由 `build_icons.py` 自动注入 `ICON_GROUPS` 数据。不要手动修改渲染引擎或复制函数。
+- `icon-cache.json` — **本地图标缓存（核心提速件）**。由 `scripts/precache.py` 预抓取全量图标并转换为统一 inner-SVG，键为 `{ "<源名>": { "<图标名>": "<innerSVG>" } }`。生成时优先读此文件，无需联网。
 
 ### scripts/
-- (Empty — all icon mapping is done via reference catalog lookup and CDN fetch)
+- `build_icons.py` — **统一生成 CLI（核心工具）**。整合全量生成、追加、搜索、预览、JS 校验五合一。用法见 Step 4-5。
+- `precache.py` — 构建/刷新本地缓存。并发抓取 IconPark / Huge Icons / Lucide / Feather，转换为统一 inner-SVG，落盘到 `assets/icon-cache.json`。支持增量（`--force` 全量、`--source <源>` 单源、`--lookup "源:名"` 查询）。
+- `icon_cache.py` — 生成期读取辅助。提供 `get_icon(source, name)`：优先读 `icon-cache.json`，缺失则回退 CDN 实时抓取并转换。
 
 ## 📋 IconPark Name Catalog for Chinese Business Concepts
 
