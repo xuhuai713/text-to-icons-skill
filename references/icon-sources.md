@@ -8,9 +8,7 @@ A curated catalog of SVG path data for linear/outline icons, organized by semant
 |--------|---------|----------|---------|--------|-------|-------------|
 | Feather Icons | MIT | https://feathericons.com | 24×24 | 1.5 | 286 | Reference catalog below |
 | Lucide Icons ⭐ | ISC | https://lucide.dev | 24×24 | 2→1.5 | 1400+ | `unpkg.com/lucide-static@latest/icons/<kebab>.svg`; strip stroke-width; or reference catalog below |
-| Phosphor Icons | MIT | https://phosphoricons.com | 24×24 | 1.5 | 9000+ | Reference catalog below |
 | IconPark ⭐ | Apache 2.0 | https://iconpark.oceanengine.com | 48×48 | 4→0.5 | 2600+ | `unpkg.com/@icon-park/svg@1.4.2/es/<Pascal>.js`; scale(0.5), strip |
-| Iconoir | MIT | https://iconoir.com | 24×24 | 1.5 | 1600+ | `cdn.jsdelivr.net/npm/iconoir@7.11.0/icons/regular/<kebab>.svg` |
 | Huge Icons ⭐ | MIT | https://hugeicons.com | 24×24 | 1.5 | 5400+ free | `cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/esm/<Pascal>Icon.js` |
 
 ---

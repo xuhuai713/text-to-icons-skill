@@ -133,7 +133,7 @@ turn these steps into icons: register, login, pay, use
 
 | Feature | Description |
 |---------|-------------|
-| **4-library mixing** | Auto-matches icons from Feather · Lucide · IconPark · Iconoir |
+| **4-library mixing** | Auto-matches icons from Feather · Lucide · IconPark · Huge Icons |
 | **Uniform style** | 24×24 viewBox + 0.5pt stroke, regardless of source library |
 | **One-click copy** | Native JS clipboard API, copied SVG includes full size attributes |
 | **Interactive page** | Single self-contained HTML, Tailwind CSS, open in any browser |
@@ -172,7 +172,7 @@ Convert these industries into icons: finance, healthcare, education, retail, man
 
 ## 🧠 Technical Details
 
-- **Icon sources**: Feather (MIT) · Lucide (ISC) · IconPark (Apache 2.0) · Iconoir (MIT)
+- **Icon sources**: Feather (MIT) · Lucide (ISC) · IconPark (Apache 2.0) · Huge Icons (MIT)
 - **Output format**: Single HTML file, Tailwind CSS CDN, zero external dependencies
 - **IconPark scaling**: 48×48 → `<g transform="scale(0.5)" stroke-width="1">` → 24×24
 - **Copy mechanism**: `XMLSerializer().serializeToString()` → `navigator.clipboard.writeText()`

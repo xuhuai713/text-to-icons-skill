@@ -1,6 +1,6 @@
 ---
 name: text-to-icons
-description: "Convert user-provided text into matching linear icons. Output is a single self-contained HTML file using a data-driven template (icons-template.html). All icon data lives in the ICON_GROUPS JS array; the template renders cards dynamically. Uniform 24×24 viewBox, 0.5pt stroke for both display and clipboard. Core source: IconPark (Apache 2.0). Additional sources: Feather/MIT, Lucide/ISC, Phosphor/MIT, Iconoir/MIT, Huge Icons/MIT."
+description: "Convert user-provided text into matching linear icons. Output is a single self-contained HTML file using a data-driven template (icons-template.html). All icon data lives in the ICON_GROUPS JS array; the template renders cards dynamically. Uniform 24×24 viewBox, 0.5pt stroke for both display and clipboard. Core source: IconPark (Apache 2.0). Additional sources: Feather/MIT, Lucide/ISC, Huge Icons/MIT."
 agent_created: true
 ---
 
@@ -24,8 +24,8 @@ Every icon in the output MUST pass ALL these checks:
 8. **Visual weight balance** — Strokes must be evenly distributed across the 24×24 viewBox. Reject icons where >70% of strokes cram into one corner.
 9. **⚠️ Stroke uniformity across sources** — All icons in the same HTML file must render at visually identical stroke thickness. The template wrapper uses `stroke-width="1.5"` for display and `COPY_STROKE_WIDTH="0.5"` for clipboard. Each source must follow its specific conversion to match:
    - **IconPark (scaled)**: `<g transform="scale(0.5)" stroke-width="3">` → effective display stroke = 3 × 0.5 = 1.5 (matches template). See Step 3(A) for details.
-   - **Feather/Huge/Phosphor (native 24×24)**: strip explicit stroke-width from children, let template wrapper control (inherit 1.5 for display, 0.5 for clipboard).
-   - **Lucide/Iconoir (native 24×24)**: strip explicit stroke-width from children (Lucide=2, Iconoir=1.5), let template wrapper control.
+   - **Feather/Huge (native 24×24)**: strip explicit stroke-width from children, let template wrapper control (inherit 1.5 for display, 0.5 for clipboard).
+   - **Lucide (native 24×24)**: strip explicit stroke-width from children (Lucide=2), let template wrapper control.
    - **Verification**: After building ICON_GROUPS, visually scan the rendered page — if any icon appears visibly thinner or thicker, check its g wrapper and child stroke-width.
 
 ## When to Use
@@ -46,8 +46,6 @@ Every icon in the output MUST pass ALL these checks:
 | **Tier 2** | **Feather Icons** | MIT | 286 | IconPark 无匹配或不符合质量规则时使用。每个组最多 2 个 |
 | **Tier 2** | **Huge Icons** (free) | MIT | 5400+ | IconPark 无匹配时使用。与 Feather 同级，优先选视觉差异更大的 |
 | **Tier 3** | **Lucide Icons** | ISC | 1400+ | Tier 1+2 均不满足时最后使用。Lucide 是 Feather 衍生，仅作补充 |
-| **Tier 3** | **Phosphor Icons** | MIT | 9000+ | 特殊形状需求时使用 |
-| **Tier 3** | **Iconoir** | MIT | 1600+ | 特殊形状需求时使用 |
 
 **判断流程：**
 1. 对每个概念，先在 IconPark 中搜索 3-4 个匹配图标
@@ -64,8 +62,6 @@ Always load `references/icon-sources.md` into context. It contains the full cata
 | **IconPark** ⭐ (core) | Apache 2.0 | 2600+ | 48×48 | 4 | `unpkg.com/@icon-park/svg@1.4.2/es/icons/<PascalCase>.js`; scale(0.5), stroke-width=3 on g |
 | **Feather Icons** | MIT | 286 | 24×24 | 1.5 | Reference catalog in `icon-sources.md` |
 | **Lucide Icons** | ISC | 1400+ | 24×24 | 2 | `unpkg.com/lucide-static@latest/icons/<kebab-name>.svg`; strip stroke-width="2" |
-| **Phosphor Icons** | MIT | 9000+ | 24×24 | 1.5 | Reference catalog in `icon-sources.md` |
-| **Iconoir** | MIT | 1600+ | 24×24 | 1.5 | `cdn.jsdelivr.net/npm/iconoir@7.11.0/icons/regular/<kebab-name>.svg`; convert currentColor→#000000 |
 | **Huge Icons** (free) | MIT | 5400+ | 24×24 | 1.5 | `cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/esm/<PascalCase>Icon.js`; read as tuple array, convert to inner SVG paths |
 
 ## Workflow
@@ -82,7 +78,7 @@ For each item, painstakingly hand-pick 6 icons that pass ALL 8 quality rules. Th
 1. Identify the core concept (e.g., "线索挖掘" = search/discovery)
 2. **First**: Search IconPark catalog for matching icons → select 3-4 candidates
 3. **Second**: If more icons needed, search Feather catalog and Huge Icons for best matches → select 1-2
-4. **Third**: Only if still short of 6, search Lucide/Phosphor/Iconoir → select 1
+4. **Third**: Only if still short of 6, search Lucide → select 1
 5. Reject any candidate that fails quality rules; if rejected, move to next source in hierarchy
 6. Select exactly 6 icons with DISTINCT visual forms
 7. Ensure at least 3 different sources are represented (but always favor higher-tier sources)
@@ -319,46 +315,7 @@ inner = re.sub(r'\\s+stroke-width="2"', '', inner)
 { paths: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/>', source: "Lucide" }
 ```
 
-#### D) Phosphor Icons (MIT, 24×24, stroke=1.5)
-
-Paths are directly usable from the reference catalog. Phosphor uses 24×24 viewBox with stroke-width="1.5".
-
-**Final format:**
-```javascript
-{ paths: '<path d="..."/>', source: "Phosphor" }
-```
-
-#### E) Iconoir (MIT, 24×24, stroke=1.5)
-
-```bash
-curl -sL "https://cdn.jsdelivr.net/npm/iconoir@7.11.0/icons/regular/<kebab-name>.svg"
-```
-
-- Names are kebab-case (e.g., `bright-star.svg`, `book-stack.svg`)
-- Search: `curl -sL "https://unpkg.com/iconoir@7.11.0/icons/regular/" | grep -o 'href="[^"]*\.svg"' | sort -u`
-
-**Conversion required:**
-1. Fetch the raw SVG file
-2. Extract inner elements
-3. Convert `stroke="currentColor"` to `stroke="#000000"` in inner elements (the template handles the wrapper SVG's stroke)
-4. Strip the original `<svg>` opening tag entirely — use regex `re.sub(r'<svg[^>]*>', '', svg_content)` because attribute order varies across icons
-5. Strip `stroke-width="1.5"` from child elements for consistency
-
-```python
-inner = re.sub(r'<svg[^>]*>', '', svg_content)
-inner = re.sub(r'</svg>', '', inner)
-inner = inner.replace('stroke="currentColor"', 'stroke="#000000"')
-inner = re.sub(r'\s+stroke-width="1.5"', '', inner)
-```
-
-**Verify** that every resulting Iconoir icon entry has no extraneous attributes.
-
-**Final format:**
-```javascript
-{ paths: '<path d="..."/><circle cx="..." cy="..." r="..."/>', source: "Iconoir" }
-```
-
-#### F) Huge Icons — Free Pack (MIT, 24×24, stroke=1.5)
+#### D) Huge Icons — Free Pack (MIT, 24×24, stroke=1.5)
 
 ```bash
 curl -sL "https://cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/esm/<PascalCase>Icon.js"
