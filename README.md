@@ -137,7 +137,7 @@ convert this text to icons: search, profile, settings, logout
 | **风格统一** | 无论来源，统一 24×24 viewBox + 0.5pt 描边 |
 | **本地缓存优先** | 随包附带 `icon-cache.json`（全量图标 inner-SVG），生成时本地读取，无需联网，秒级出图 |
 | **一键复制** | 原生 JS 剪贴板 API，复制结果含完整尺寸属性 |
-| **交互式页面** | 单 HTML 文件输出，Tailwind CSS 渲染，浏览器直接打开 |
+| **交互式页面** | 单 HTML 文件输出，内联 CSS 渲染，浏览器直接打开 |
 | **IconPark 转换** | 48×48 三色填充 → 24×24 线性描边，含 fill→stroke 自动转换 |
 | **来源标注** | 每个图标卡片标注来源库（IconPark / Feather 等），透明度高 |
 
@@ -175,7 +175,7 @@ convert this text to icons: search, profile, settings, logout
 
 - **图标源**：IconPark (Apache 2.0) · Feather (MIT) · Lucide (ISC) · Huge Icons (MIT)
 - **本地缓存**：`assets/icon-cache.json` 预置全量图标 inner-SVG，`scripts/precache.py` 可刷新
-- **输出格式**：单 HTML 文件，Tailwind CSS CDN，零外部依赖
+- **输出格式**：单 HTML 文件，内联 CSS，零外部依赖
 - **IconPark 缩放**：48×48 → `<g transform="scale(0.5)" stroke-width="3">` → 24×24（显示有效描边 1.5）
 - **复制实现**：`XMLSerializer().serializeToString()` → `navigator.clipboard.writeText()`
 - **描边控制**：所有来源统一 `stroke-width="0.5"`，复制时明确写入
