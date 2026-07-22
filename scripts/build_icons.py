@@ -13,6 +13,10 @@ build_icons.py — text-to-icons 统一生成 / 追加 / 搜索 / 预览 CLI。
   # 搜索缓存（快速查找匹配图标）
   python build_icons.py --search "交通 基础设施"
 
+  # 批量编排（单进程搜索多组；concepts=概念去重自动选取，keywords=排名候选）
+  # 配合 --draft 直接写出 groups.json 草稿，供 --groups 立即构建
+  python build_icons.py --plan plan.json --draft groups_draft.json
+
   # 启动本地预览服务器
   python build_icons.py --serve icons.html
 
@@ -178,6 +182,118 @@ def format_search_results(results: dict) -> str:
     return "\n".join(lines)
 
 
+# ── 批量编排 ──────────────────────────────────────────────────
+def search_icons_ranked(keywords: list) -> list:
+    """跨全部源对关键词排名，返回 [(score, src, name), ...]（降序）。
+
+    子串命中计 1 分；任一侧有词边界（前缀或后缀复合，如 friends⊂FriendsCircle、
+    handshake⊂CooperativeHandshake）额外 +0.5 分，使精确 token 排序更靠前，
+    从而把 trousers⊃users 之类的内部子串噪声压到候选列表下方，而非直接丢弃（避免漏匹配）。
+    仅依赖全局 cache() 单例，整个 --plan 过程只加载一次 7MB+ JSON。
+    """
+    c = cache()
+    kws = [k.strip().lower() for k in keywords if k.strip()]
+    rows = []
+    for src, icons in c.items():
+        for name, svg in icons.items():
+            if not svg or not svg.strip():
+                continue
+            n = name.lower()
+            score = 0.0
+            for kw in kws:
+                if kw in n:
+                    score += 1.0
+                    lead = re.search(r"(?<![a-z])" + re.escape(kw), n)
+                    trail = re.search(re.escape(kw) + r"(?![a-z])", n)
+                    if lead or trail:
+                        score += 0.5
+            if score > 0:
+                rows.append((score, src, name))
+    rows.sort(reverse=True)
+    return rows
+
+
+def plan_icons(plan: list, top: int = 14, draft_path: str = None):
+    """批量编排核心：单进程搜索多组，按组格式返回候选。
+
+    plan 元素两种格式：
+      A) concepts 模式（推荐）：
+         {"name": "主任",
+          "concepts": [{"concept": "authority", "keywords": ["crown","king"]}, ...]}
+         → 每个概念按「首关键词优先 + IconPark 优先」选取首个存在的图标，
+           跨概念按 name 去重，天然避免 Crown×3 撞车，且不会选到语义反例。
+         → 若提供 draft_path，写出可直接 --groups 的 groups.json 草稿（需人工复审）。
+      B) keywords 模式：
+         {"name": "关于我们", "keywords": ["about","info","people"]}
+         → 返回 TOP-N 排名候选，由 AI 人工定稿（不自动选取，避免语义撞车）。
+
+    返回 (report_str, draft_groups_or_None)。
+    """
+    SOURCE_RANK = {"IconPark": 0, "Feather": 1, "Huge Icons": 2, "Lucide": 3}
+    lines = []
+    draft_groups = []
+
+    def pick_for_concept(concept, keywords, used):
+        """按概念关键词顺序选取 1 个图标：
+        · 关键词按列表顺序即「贴合度」优先级（首个最贴切）；
+        · 每关键词候选按 (源层级, 匹配分, 名长) 排序：IconPark 优先、词边界优先、同档取短名（基础图标优于复合变体）；
+        · 优先采用词边界强匹配，命中即停；若某关键词仅产生弱子串命中则跳过，留给后续关键词；
+          仅当所有关键词都无强匹配时，才回退首个关键词的弱命中（如 users⊂trousers 的极端情形）。
+        跨概念按 name 去重。"""
+        weak_fallback = None
+        for kw in keywords:
+            hits = []
+            for score, src, name in search_icons_ranked([kw]):
+                if name in used:
+                    continue
+                hits.append((SOURCE_RANK.get(src, 9), score, src, name, kw))
+            if not hits:
+                continue
+            hits.sort(key=lambda e: (e[0], -e[1], len(e[3])))
+            strong = [h for h in hits if h[1] >= 1.5]
+            if strong:
+                return (concept, strong[0][2], strong[0][3], strong[0][4])
+            if weak_fallback is None:
+                weak_fallback = hits[0]
+        if weak_fallback:
+            return (concept, weak_fallback[2], weak_fallback[3], weak_fallback[4])
+        return None
+
+    for grp in plan:
+        gname = grp.get("name", "")
+        if "concepts" in grp:
+            chosen = []
+            used = set()
+            for c in grp["concepts"]:
+                hit = pick_for_concept(c.get("concept", ""), c.get("keywords", []), used)
+                if hit:
+                    chosen.append(hit)
+                    used.add(hit[2])
+            comp = {}
+            for _, src, _, _ in chosen:
+                comp[src] = comp.get(src, 0) + 1
+            ip = comp.get("IconPark", 0)
+            flag = "" if len(chosen) == 6 else "  ⚠️不足6"
+            lines.append(f"\n===== {gname} (概念去重选定 {len(chosen)} | IconPark={ip}){flag} =====")
+            for concept, src, name, kw in chosen:
+                lines.append(f"  {concept:<12} ({kw}) = {src}:{name}")
+            if chosen:
+                draft_groups.append({"name": gname, "icons": [[s, n] for _, s, n, _ in chosen]})
+        else:
+            rows = search_icons_ranked(grp.get("keywords", []))
+            rows.sort(key=lambda r: (SOURCE_RANK.get(r[1], 9), -r[0]))
+            rows = rows[:top]
+            lines.append(f"\n===== {gname} (候选 TOP {len(rows)}) =====")
+            for score, src, name in rows:
+                lines.append(f"  {score:>4}  {src}:{name}")
+    report = "\n".join(lines)
+    if draft_path and draft_groups:
+        Path(draft_path).write_text(
+            json.dumps(draft_groups, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    return report, (draft_groups if draft_path else None)
+
+
 # ── 预览服务器 ────────────────────────────────────────────────
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -217,6 +333,24 @@ def main():
             print("未找到匹配图标")
         else:
             print(format_search_results(results))
+        return
+
+    # 批量编排模式
+    if "--plan" in args:
+        idx = args.index("--plan")
+        plan_path = args[idx + 1] if idx + 1 < len(args) else ""
+        if not plan_path or not os.path.exists(plan_path):
+            print(f"JSON 文件不存在: {plan_path}", file=sys.stderr)
+            sys.exit(1)
+        plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
+        top_idx = args.index("--top") if "--top" in args else -1
+        top = int(args[top_idx + 1]) if top_idx >= 0 and top_idx + 1 < len(args) else 14
+        draft_idx = args.index("--draft") if "--draft" in args else -1
+        draft_path = args[draft_idx + 1] if draft_idx >= 0 and draft_idx + 1 < len(args) else None
+        report, _ = plan_icons(plan, top=top, draft_path=draft_path)
+        print(report)
+        if draft_path:
+            print(f"\n✅ 已写草稿组 → {draft_path}（仅 concepts 组；keywords 组需人工定稿）")
         return
 
     # 预览模式

@@ -6,8 +6,8 @@ A curated catalog of SVG path data for linear/outline icons, organized by semant
 
 | Source | License | Base URL | viewBox | Stroke | Icons | Fetch Method |
 |--------|---------|----------|---------|--------|-------|-------------|
-| Feather Icons | MIT | https://feathericons.com | 24×24 | 1.5 | 286 | Reference catalog below |
-| Lucide Icons | ISC | https://lucide.dev | 24×24 | 2→1.5 | 1400+ | `unpkg.com/lucide-static@latest/icons/<kebab>.svg`; strip stroke-width; or reference catalog below |
+| Feather Icons | MIT | https://feathericons.com | 24×24 | 1.5 | 287 | Reference catalog below |
+| Lucide Icons | ISC | https://lucide.dev | 24×24 | 2→1.5 | 1400+ | `unpkg.com/lucide-static@0.469.0/icons/<kebab>.svg`; strip stroke-width; or reference catalog below |
 | IconPark ⭐ | Apache 2.0 | https://iconpark.oceanengine.com | 48×48 | 4→0.5 | 2600+ | `unpkg.com/@icon-park/svg@1.4.2/es/<Pascal>.js`; scale(0.5), strip |
 | Huge Icons | MIT | https://hugeicons.com | 24×24 | 1.5 | 5400+ free | `cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/esm/<Pascal>Icon.js` |
 

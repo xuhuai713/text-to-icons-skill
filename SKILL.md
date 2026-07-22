@@ -12,12 +12,23 @@ This skill transforms structured text (process steps, feature lists, categories,
 
 ## 🔑 Critical Quality Rules — MUST FOLLOW
 
+### Rule 0 (SUPREME — overrides all rules below) — 视觉与概念匹配度
+
+**图标与概念的视觉匹配度 > 一切其他规则。** 当 Tier 1 (IconPark) 的视觉匹配度差于 Tier 3 (Lucide) 时，使用 Tier 3。命名者隐喻 ≠ 用户隐喻，`Transport` 在 IconPark 实际是运输机器人（不是交通工具），`NetworkTree` 实际是组织架构图（不是交通网络）。
+
+**任何选中的图标都必须通过以下视觉检查（不依赖名称推断）：**
+- **去标签测试**：移除文本标签，图标本身是否仍能让普通人 1 秒内识别为该概念？
+- **去名称测试**：不知道图标英文名的情况下，看视觉是否能直接联想到中文概念？
+- **隐喻一致性**：图标的隐喻方向必须与概念的主流隐喻一致（如「交通产业」→ vehicle/ship/plane/bus/factory，不是 robot/org-chart）。
+
+### Rules 1–9 (Quality Checks)
+
 Every icon in the output MUST pass ALL these checks:
 
 1. **Instantly recognizable** — The average person understands the icon within 1 second. No squinting required.
 2. **No abstract metaphors** — Only universally understood visual symbols: magnifying glass = search (good); abstract curves labeled "handshake" (bad — looks like random squiggles).
 3. **Must decode without labels** — Remove the text label; the icon should still be obvious.
-4. **Vet SVG paths** — Before including any icon, mentally trace the paths to confirm they actually draw the intended shape.
+4. **Vet SVG paths** — Before including any icon, mentally trace the paths to confirm they actually draw the intended shape. **Do not trust the icon name as a proxy for visual content.**
 5. **No repetitions** — Within the same group's 6 icons, avoid visually similar variants. Also avoid reusing the same icon across different groups more than 2 times.
 6. **Path density check** — Max 6 path elements (paths/lines/circles/rects/polylines) unless every element is clearly distinguishable at 28×28px.
 7. **Shape integrity check** — Reject squashed circles, mismatched corners, disconnected lines, unintentional overlapping (杂糅).
@@ -36,32 +47,32 @@ Every icon in the output MUST pass ALL these checks:
 - User wants copyable SVG icons for design tools or frontend projects
 - User requests linear/outline icons with consistent stroke style
 
-## ⚙️ Icon Source Priority Hierarchy (MUST FOLLOW)
+## ⚙️ Icon Source Priority Hierarchy
 
-每次生成图标时，严格按以下优先级选择图标源，**不允许随机取样或随意分配**：
+**重要前提**：本优先级仅在「视觉匹配度相当」时生效。当 Tier 1 (IconPark) 的视觉匹配明显差于 Tier 3 (Lucide) 时，**直接使用 Tier 3**，不需要为满足 Tier 1 而降级匹配度。详见 Rule 0。
 
 | 层级 | 源 | 许可证 | 图标数 | 使用条件 |
 |------|---|--------|--------|---------|
-| **Tier 1 ⭐** | **IconPark** (核心) | Apache 2.0 | 2600+ | **默认首选**。先搜索 IconPark 是否有匹配的图标。每个组至少 3 个 IconPark 图标 |
-| **Tier 2** | **Feather Icons** | MIT | 286 | IconPark 无匹配或不符合质量规则时使用。每个组最多 2 个 |
+| **Tier 1 ⭐** | **IconPark** (核心) | Apache 2.0 | 2600+ | **默认首选**。先搜索 IconPark 是否有匹配的图标。每个组至少 3 个 IconPark 图标（前提是 IconPark 候选的视觉匹配度达标） |
+| **Tier 2** | **Feather Icons** | MIT | 287 | IconPark 无匹配或不符合质量规则时使用。每个组最多 2 个 |
 | **Tier 2** | **Huge Icons** (free) | MIT | 5400+ | IconPark 无匹配时使用。与 Feather 同级，优先选视觉差异更大的 |
-| **Tier 3** | **Lucide Icons** | ISC | 1400+ | Tier 1+2 均不满足时最后使用。Lucide 是 Feather 衍生，仅作补充 |
+| **Tier 3** | **Lucide Icons** | ISC | 1400+ | Tier 1+2 视觉匹配不达标时使用。Lucide 是 Feather 衍生，**当 Lucide 的视觉更准，优先 Lucide**（不再受「Tier 3 兜底」限制） |
 
 **判断流程：**
-1. 对每个概念，先在 IconPark 中搜索 3-4 个匹配图标
-2. 如果 IconPark 匹配不足（无对应图标或路径密度超标/视觉失衡），从 Tier 2（Feather / Huge Icons）补齐
-3. 仅当 Tier 1+2 仍不足 6 个时，才从 Tier 3 中选取
-4. 同一组内确保 3 个不同层级以上的来源（如：IconPark ×3 + Feather ×2 + Lucide ×1）
+1. 对每个概念，在所有 4 个源中搜索匹配图标（`--plan` 或 `--search` 一键完成）
+2. 肉眼扫一遍自动选图结果，替换明显错配（`Eggplant`→`Seedling`、`Trademark`→`Shop`）
+3. 补齐到每组 6 个，同组至少 3 个不同源
+4. Rule 0 凌驾一切——当 Tier 1 视觉差于 Tier 3，直接用 Tier 3
 
 ## Icon Source Reference
 
-Always load `references/icon-sources.md` into context. It contains the full catalog organized by semantic category with SVG path data for rapid lookup without external fetching.
+Always load `references/icon-sources.md` into context. It contains a curated catalog (精选参考，非全量) organized by semantic category with SVG path data for rapid lookup without external fetching.
 
 | Source | License | Icons | viewBox | Default Stroke | Fetch Method |
 |--------|---------|-------|---------|----------------|--------------|
 | **IconPark** ⭐ (core) | Apache 2.0 | 2600+ | 48×48 | 4 | `unpkg.com/@icon-park/svg@1.4.2/es/icons/<PascalCase>.js`; scale(0.5), stroke-width=3 on g |
-| **Feather Icons** | MIT | 286 | 24×24 | 1.5 | Reference catalog in `icon-sources.md` |
-| **Lucide Icons** | ISC | 1400+ | 24×24 | 2 | `unpkg.com/lucide-static@latest/icons/<kebab-name>.svg`; strip stroke-width="2" |
+| **Feather Icons** | MIT | 287 | 24×24 | 1.5 | Reference catalog in `icon-sources.md` |
+| **Lucide Icons** | ISC | 1400+ | 24×24 | 2 | `unpkg.com/lucide-static@0.469.0/icons/<kebab-name>.svg`; strip stroke-width="2" |
 | **Huge Icons** (free) | MIT | 5400+ | 24×24 | 1.5 | `cdn.jsdelivr.net/npm/@hugeicons/core-free-icons@4.2.2/dist/esm/<PascalCase>Icon.js`; read as tuple array, convert to inner SVG paths |
 
 ## Workflow
@@ -72,16 +83,24 @@ Extract all discrete items from the user's text. Separators: newlines, numbered/
 
 ### Step 2: Map Each Item to 6 Matching Icons
 
-For each item, painstakingly hand-pick 6 icons that pass ALL 8 quality rules. This is the most critical step.
+Each text item maps to exactly 6 icons. **6 icons = fuzzy buffer** — 4-5 accurate ones compensate for 1-2 borderline. This eliminates the need for a separate verification step.
 
-**Icon selection process — strict priority order (not random):**
-1. Identify the core concept (e.g., "线索挖掘" = search/discovery)
-2. **First**: Search IconPark catalog for matching icons → select 3-4 candidates
-3. **Second**: If more icons needed, search Feather catalog and Huge Icons for best matches → select 1-2
-4. **Third**: Only if still short of 6, search Lucide → select 1
-5. Reject any candidate that fails quality rules; if rejected, move to next source in hierarchy
-6. Select exactly 6 icons with DISTINCT visual forms
-7. Ensure at least 3 different sources are represented (but always favor higher-tier sources)
+**Efficient selection process (2 rounds, no intermediate artifacts):**
+
+**Round 1 — Batch plan (bulk search, 1 tool call):**
+1. Write `plan.json` with concepts + keywords per group (≥3 groups recommended)
+2. Run `build_icons.py --plan plan.json --draft groups_draft.json` — single-process search across all 4 sources, returns 3 auto-picked icons per group
+3. Or for ≤2 groups, use `--search "keyword1 keyword2"` per group
+
+**Round 2 — Fix + fill (manual, no extra tool calls):**
+4. Scan auto-picks for visual mismatches (Rule 0): reject icons whose visual doesn't match the concept. Common traps:
+   - `Eggplant` = 茄子, not 培育 → use `Seedling`
+   - `Trademark` = 商标, not 商贸 → use `Shop`
+   - `Transport` = 机器人, not 交通工具 → use `Ship`/`Truck`
+   - `CloudStorage` = 云存储, not 能源 → use `Atom`/`Wind`
+5. Add 3 more icons per group to reach 6, searching across all 4 sources as needed
+6. **Mental filter (30 sec)**: remove labels, check that ≥4/6 icons per group are visually obvious
+7. Write `groups.json`
 
 **Selection quality benchmarks:**
 
@@ -108,7 +127,7 @@ For each item, pick 6 icons covering distinct visual forms:
 - **Action/outcome** (2): Something related to the action or result
 - **Tool/related object** (1-2): A commonly associated tool
 
-**CRITICAL: Before finalizing any icon, mentally trace its SVG paths.** Confirm the paths actually draw what is intended.
+**CRITICAL: Before finalizing any icon, mentally trace its SVG paths.** Confirm the paths actually draw what is intended. 6 icons per group = fuzzy buffer; 4-5 accurate ones compensate for 1-2 borderline cases. **Trust visual, not name:** `Transport` = 机器人, `NetworkTree` = 组织图 — reject on sight.
 
 ### Step 3: Fetch SVG Paths from Icon Sources
 
@@ -287,12 +306,12 @@ Use the reference catalog in `icon-sources.md`. Feather paths are directly usabl
 #### C) Lucide Icons (ISC, 24×24, stroke=2)
 
 ```bash
-curl -sL "https://unpkg.com/lucide-static@latest/icons/<kebab-name>.svg"
+curl -sL "https://unpkg.com/lucide-static@0.469.0/icons/<kebab-name>.svg"
 ```
 
 - Names are kebab-case (e.g., `search.svg`, `user-circle.svg`, `file-text.svg`)
 - Default SVG: viewBox="0 0 24 24", stroke-width="2"
-- Search available icon names: `curl -sL "https://unpkg.com/lucide-static@latest/" | grep -o 'icons/[a-z-]*\.svg' | sort -u`
+- Search available icon names: `curl -sL "https://unpkg.com/lucide-static@0.469.0/" | grep -o 'icons/[a-z-]*\.svg' | sort -u`
 
 **Conversion required:**
 1. Read the raw SVG file
@@ -393,6 +412,54 @@ paths_inner = ''.join(to_svg(e) for e in raw)
 { paths: '<path d="M..."/><circle cx="11" cy="11" r="8"/>', source: "Huge Icons" }
 ```
 
+### Step 3.5: Batch Planning (批量编排 — 多组场景推荐)
+
+当一次要生成 **多个组**（≥3 组）时，用 `--plan` 把「逐组独立搜索」压缩成 **单进程一次搜索**，把 AI 工具调用往返从 N 次降到 2 次（搜索 1 次 + 构建 1 次）。缓存只加载一次，典型耗时 <1s。
+
+**plan.json 两种组格式：**
+
+```json
+[
+  {
+    "name": "主任",
+    "concepts": [
+      {"concept": "authority",  "keywords": ["crown","king","medal"]},
+      {"concept": "expertise",  "keywords": ["master","certificate"]},
+      {"concept": "seat",       "keywords": ["chair","seat"]}
+    ]
+  },
+  {
+    "name": "关于我们",
+    "keywords": ["about","info","people","team","building","book"]
+  }
+]
+```
+
+- **concepts 模式（推荐）**：每组按概念列候选关键词，脚本自动「首关键词优先 + IconPark 优先 + 最短名决胜」选取，**跨概念按图标名去重**，天然避免 Crown×3 / Group×3 撞车。配合 `--draft` 直接写出可 `--groups` 的草稿 JSON。
+- **keywords 模式**：返回 TOP-N 排名候选，**由 AI 人工定稿**（不自动选取，留给智力判断）。
+
+**使用流程（2 次调用）：**
+
+```bash
+# 第 1 次：单进程批量搜索，写草稿（仅 concepts 组写入；keywords 组打印候选供人工定稿）
+python build_icons.py --plan plan.json --draft groups_draft.json
+
+# 人工复核草稿 / 补齐 keywords 组的 6 个图标（遵循质量规则与源优先级）
+
+# 第 2 次：构建 HTML（内置 verify_icons + node --check）
+python build_icons.py --groups groups_draft.json --output icons.html --title "标题"
+```
+
+**选取策略（concepts 模式，确定性、可复现）：**
+1. 关键词按列表顺序即「贴合度」优先级，首个最贴切；
+2. 每关键词候选按 `(源层级 IconPark>Feather>Huge>Lucide, 匹配分, 名长)` 排序；
+3. 优先采用**词边界强匹配**（如 `friends`⊂`FriendsCircle`、`handshake`⊂`CooperativeHandshake`），命中即停；
+4. 某关键词仅产生弱子串命中（如 `users`⊂`trousers`）则跳过，留给后续关键词；
+5. 全无强匹配才回退首个关键词的弱命中；
+6. 跨概念按图标名去重，保证每组 6 个隐喻互不雷同。
+
+> ⚠️ `--plan` 的自动选取是**最佳努力草稿**，受图标库命名覆盖限制（如 IconPark 无 `Users`，只回退 `User`）。生成前仍须按 Step 2 质量规则逐图标复核。
+
 ### Step 4: Build the ICON_GROUPS Data Array
 
 **Use the unified CLI tool `scripts/build_icons.py` to generate HTML.** It reads a groups JSON file (concept→icon mappings), injects data into the canonical template, runs JS syntax validation, and writes the output in one command.
@@ -421,6 +488,10 @@ python build_icons.py --append groups.json --html existing.html
 
 # 缓存搜索（按英文关键词查找匹配图标）
 python build_icons.py --search "drone airplane robot"
+
+# 批量编排（单进程搜索多组；concepts=概念去重自动选取，keywords=排名候选）
+# 配合 --draft 写出 groups.json 草稿，供 --groups 立即构建
+python build_icons.py --plan plan.json --draft groups_draft.json
 ```
 
 **Template reference:** `assets/icons-template.html` — fully self-contained (0 external dependencies, inline CSS, system fonts). All Tailwind utilities have been replaced with inline CSS rules; the page renders offline without CDN calls.
@@ -434,31 +505,22 @@ python build_icons.py --search "drone airplane robot"
 - Aim for 6 icons per group. Min 1, max 6.
 - **⚠️ CRITICAL: Sanitize paths.** The CLI tool handles this internally — `re.sub(r'\s+', ' ', paths).strip()` + escaping.
 
-### Step 5: Deliver
+### Step 5: Build + Deliver
 
-1. Compile icon selections into a `groups.json` file (see Step 4 format)
-2. Run `build_icons.py --groups groups.json --output icons.html --title "标题"`
-   - The CLI reads the cache, builds ICON_GROUPS JS, injects into the template, runs `node --check` automatically
-3. If extending an existing page, use `build_icons.py --append groups.json --html existing.html`
-   - Built-in dedup: automatically skips groups whose `name` already appears in the target file
-4. Present the output HTML to the user
-5. Clean up the temporary `groups.json` — it's a build artifact, not a deliverable
+1. Run `build_icons.py --groups groups.json --output icons.html --title "标题"`
+   - Built-in: reads cache, injects ICON_GROUPS JS, validates with `node --check`
+2. Present the output HTML to the user
+3. Clean up temp files: `plan.json`, `groups_draft.json`, `groups.json` — build artifacts, not deliverables
+4. Save a short memory note (what was generated, any auto-pick corrections made)
 
-**🚀 New workflow (post-optimization):**
+**Proven pipeline (2 tool calls):**
 ```
-icon selections → groups.json → build_icons.py --groups → deliver
+plan.json → build_icons.py --plan --draft → fix + fill (mental, no tools) → groups.json → build_icons.py --groups → deliver
 ```
-No manual template editing, no throwaway Python scripts, no separate validation step.
 
-## Priority Enforcement Check
+## ⚡ Pre-Delivery Mental Filter (对抗性自审)
 
-Before delivering, verify each group's icon selection against the priority hierarchy:
-
-1. **Exactly 6 icons per group** — The skill mandates each text item maps to 6 icons. This is a hard rule. Do NOT reduce to fewer without explicit user request.
-2. **Count per tier**: Tier 1 (IconPark) ≥ 3 per group? Tier 2 (Feather/Huge) ≤ 2? Tier 3 (Lucide/others) ≤ 1?
-3. **Reason for downgrade**: If any icon comes from Tier 2 or 3, verify that IconPark genuinely lacked a matching icon (no equivalent concept, or all candidates failed quality rules)
-4. **Stroke uniformity**: Check that IconPark icons use `<g transform="scale(0.5)" stroke-width="3">` — not bare `<g transform="scale(0.5)">` which would make them half as thick as Feather icons
-5. **No random pick**: Every icon selection must be traceable to the priority hierarchy decision logic
+生成 `groups.json` 前，用 30 秒跑这个思想实验：**如果去掉所有标签只看视觉，每个组的 6 个图标里至少 4 个能一眼看懂概念。** 如果不到 4 个 → 回退重选。典型错配：`Transport`=机器人、`NetworkTree`=组织图、`CloseRemind`=关闭提醒。
 
 ## Fallback Behavior
 
@@ -469,7 +531,7 @@ Before delivering, verify each group's icon selection against the priority hiera
 ## Resources
 
 ### references/
-- `icon-sources.md` — Full icon catalog organized by semantic category with SVG path data. Load this into context before executing the skill.
+- `icon-sources.md` — Curated icon catalog (精选参考，非全量) organized by semantic category with SVG path data. Load this into context before executing the skill.
 
 ### assets/
 - `icons-template.html` — 数据驱动模板（**0 外部依赖**，内联 CSS + 系统字体，离线可用）。由 `build_icons.py` 自动注入 `ICON_GROUPS` 数据。不要手动修改渲染引擎或复制函数。
