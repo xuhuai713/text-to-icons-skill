@@ -27,18 +27,18 @@
 
 ## 🧨 问题
 
-> **给 PPT / 文章 / 飞书文档配图标时，最烦人的不是找不到图标，而是找齐了之后风格不统一。**
+> **给 PPT、文章或飞书文档配图标时，最磨人的不是找不到图标，而是找齐之后风格七零八落。**
 
-- Feather 的描边是 1.5px，IconPark 是 4px，放在一起粗细参差不齐
-- 同一个页面里图标 viewBox 大小不一，视觉重心东倒西歪
-- 好不容易排好版，复制到 PPT 里尺寸又变了，重新调半天
-- 从不同库搜图 → 手动对齐描边 → 逐个复制 → 微调尺寸……**一次 10 个图标就要浪费 20 分钟**
+- Feather 描边 1.5px、IconPark 却达 4px，混排在一起粗细参差
+- 同一页面里图标 viewBox 大小不一，视觉重心东倒西歪
+- 好不容易排好版，复制到 PPT 里尺寸又变，只得重新调半天
+- 跨库搜图 → 手动对齐描边 → 逐个复制 → 微调尺寸……**一次 10 个图标就要耗掉 20 分钟**
 
 ---
 
 ## ✅ 解决方案
 
-**text-to-icons** 是一个 AI Skill，你只需要输入几个关键词，它自动完成：
+**text-to-icons 是一个 AI Skill：你只需输入几个关键词，剩下的统一工作交给它自动完成。**
 
 <table>
 <tr>
@@ -57,9 +57,9 @@
 </tr>
 </table>
 
-**所有图标统一规格：**
-- ✅ 24×24 viewBox — 视觉大小完全一致
-- ✅ 0.5pt 描边 — 粗细均匀，不分来源
+**所有图标统一为以下规格：**
+- ✅ 24×24 viewBox — 视觉尺寸完全一致
+- ✅ 1.5pt 描边 — 粗细均匀、不分来源，复制即所见
 - ✅ `stroke-linecap="round"` — 圆角端点，专业质感
 - ✅ 复制出的 SVG 含 `width="24pt" height="24pt"` — 粘贴到 PPT 尺寸自动匹配
 
@@ -100,10 +100,10 @@ convert this text to icons: search, profile, settings, logout
 | 场景 | 手动操作 | 使用本 Skill |
 |------|---------|------------|
 | 从 4 个图标库各搜 6 个图标 | 逐个搜索，反复切换页面 | 一句话输入关键词 |
-| 统一描边（Feather 1.5px vs IconPark 4px） | 手动调整每条 SVG | 自动统一为 0.5pt |
+| 统一描边（Feather 1.5px vs IconPark 4px） | 手动调整每条 SVG | 自动统一为 1.5pt |
 | 统一 viewBox | 手动改写每个 SVG 的 viewBox | 自动缩放处理 |
 | 复制到 PPT | 导出 PNG / 逐个复制 | 一键「复制 SVG」，含尺寸属性 |
-| 总耗时（10 个条目） | ~20 分钟 | ~1 分钟（含生成+确认时间） |
+| 总耗时（10 个条目） | ~20 分钟 | ~1 分钟（含生成与确认） |
 
 ---
 
@@ -133,9 +133,9 @@ convert this text to icons: search, profile, settings, logout
 
 | 特性 | 说明 |
 |------|------|
-| **多库混编** | 从 IconPark · Feather · Lucide · Huge Icons 四大库按优先级自动匹配语义对应的图标 |
-| **风格统一** | 无论来源，统一 24×24 viewBox + 0.5pt 描边 |
-| **本地缓存优先** | 随包附带 `icon-cache.json`（全量图标 inner-SVG），生成时本地读取，无需联网，秒级出图 |
+| **多库混编** | 从 IconPark · Feather · Lucide · Huge Icons 四大库按优先级自动匹配语义最贴合的图标 |
+| **风格统一** | 无论来源，统一 24×24 viewBox + 1.5pt 描边 |
+| **本地缓存优先** | 随包附带 `icon-cache.json`（四大库共 9900+ 图标 inner-SVG），本地读取，无需联网，秒级出图 |
 | **一键复制** | 原生 JS 剪贴板 API，复制结果含完整尺寸属性 |
 | **交互式页面** | 单 HTML 文件输出，内联 CSS 渲染，浏览器直接打开 |
 | **IconPark 转换** | 48×48 三色填充 → 24×24 线性描边，含 fill→stroke 自动转换 |
@@ -174,11 +174,11 @@ convert this text to icons: search, profile, settings, logout
 ## 🧠 技术内幕
 
 - **图标源**：IconPark (Apache 2.0) · Feather (MIT) · Lucide (ISC) · Huge Icons (MIT)
-- **本地缓存**：`assets/icon-cache.json` 预置全量图标 inner-SVG，`scripts/precache.py` 可刷新
+- **本地缓存**：`assets/icon-cache.json` 预置图标 inner-SVG，`scripts/precache.py` 可刷新
 - **输出格式**：单 HTML 文件，内联 CSS，零外部依赖
 - **IconPark 缩放**：48×48 → `<g transform="scale(0.5)" stroke-width="3">` → 24×24（显示有效描边 1.5）
 - **复制实现**：`XMLSerializer().serializeToString()` → `navigator.clipboard.writeText()`
-- **描边控制**：所有来源统一 `stroke-width="0.5"`，复制时明确写入
+- **描边控制**：复制出的 SVG 统一 `stroke-width="1.5"`（与屏幕显示一致）；IconPark 的 `scale(0.5)` 包裹层自动补偿 `stroke-width = 目标 × 2`，确保各源复制后粗细完全相同
 
 > 详细的 Skill 指令规范参见 [SKILL.md](text-to-icons/SKILL.md)
 
