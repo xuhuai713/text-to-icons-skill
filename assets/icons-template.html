@@ -89,7 +89,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 // ══════════════════════════════════════════════════════════
 const PAGE_TITLE = '图标集';
 const ICON_COLOR = '#000000';
-const COPY_STROKE_WIDTH = '0.5';
+const COPY_STROKE_WIDTH = '1.5';
 
 // ══════════════════════════════════════════════════════════
 // 图标数据 —— 只需编辑这里
@@ -320,7 +320,12 @@ function copySVG(btn) {
   if (!viewSvg) return;
   const strokeColor = viewSvg.getAttribute('stroke') || ICON_COLOR;
   const viewBox = viewSvg.getAttribute('viewBox') || '0 0 24 24';
-  const paths = viewSvg.innerHTML.trim();
+  let paths = viewSvg.innerHTML.trim();
+  // 统一复制磅值：IconPark 数据以 <g transform="scale(0.5)"> 包裹，其 stroke-width 会被缩放折半。
+  // 将 g 的 stroke-width 设为 COPY_STROKE_WIDTH × 2，使复制后有效磅值 = COPY_STROKE_WIDTH，与其他源一致。
+  if (paths.indexOf('scale(0.5)') !== -1) {
+    paths = paths.replace(/<g transform="scale\(0\.5\)" stroke-width="[\d.]+"/, '<g transform="scale(0.5)" stroke-width="' + (parseFloat(COPY_STROKE_WIDTH) * 2) + '"');
+  }
   const svgCode = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + viewBox + '" width="24pt" height="24pt" fill="none" stroke="' + strokeColor + '" stroke-width="' + COPY_STROKE_WIDTH + '" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(svgCode).then(function() { showCopied(btn); }).catch(function() { fallbackCopy(svgCode, btn); });
